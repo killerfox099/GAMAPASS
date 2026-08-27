@@ -703,36 +703,64 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# ================= INICIALIZAÇÃO DO BANCO E ADMIN INICIAL =================
-with app.app_context():
-    try:
-        db.create_all()
-        
-        # Migração automática e segura para SQLite caso a coluna seja nova
+# ================= INICIALIZAÇÃO DO BANCO E MIGRAÇÃO AUTOMÁTICA =================
+def inicializar_banco():
+    from sqlalchemy import text, inspect
+    with app.app_context():
         try:
-            from sqlalchemy import text
-            with db.engine.connect() as conn:
-                conn.execute(text("ALTER TABLE user ADD COLUMN last_login_date VARCHAR(20)"))
-                conn.commit()
-        except Exception:
-            pass # Coluna já existe ou banco é novo
+            db.create_all()
+        except Exception as e:
+            print(f"[AVISO] db.create_all: {e}")
             
-        # Se não houver nenhum usuário cadastrado no banco, cria o primeiro Admin
-        if not User.query.first():
-            admin_user = os.environ.get('INITIAL_ADMIN_USER', 'admin')
-            admin_pass = os.environ.get('INITIAL_ADMIN_PASS', 'Admin@123456')
-            admin_obj = User(
-                username=admin_user,
-                password_hash=generate_password_hash(admin_pass, method='scrypt'),
-                is_admin=True,
-                is_first_login=False,
-                display_name="Administrador do Sistema"
-            )
-            db.session.add(admin_obj)
-            db.session.commit()
-            print(f"[INFO] Administrador inicial criado com sucesso: login='{admin_user}'")
-    except Exception as e:
-        print(f"[AVISO] Falha ao inicializar tabelas na inicialização: {e}")
+        try:
+            inspector = inspect(db.engine)
+            tables = inspector.get_table_names()
+            user_table = 'user' if 'user' in tables else ('users' if 'users' in tables else None)
+            
+            if user_table:
+                cols = [c['name'] for c in inspector.get_columns(user_table)]
+                is_postgres = 'postgres' in db.engine.url.drivername or 'postgresql' in str(db.engine.url)
+                table_ref = f'"{user_table}"' if is_postgres else user_table
+                
+                columns_to_ensure = [
+                    ('display_name', 'VARCHAR(100)'),
+                    ('email', 'VARCHAR(120)'),
+                    ('requires_password_reset', 'BOOLEAN DEFAULT FALSE'),
+                    ('machine_ip', 'VARCHAR(50)'),
+                    ('department', 'VARCHAR(100)'),
+                    ('sector', 'VARCHAR(100)'),
+                    ('unit', 'VARCHAR(100)'),
+                    ('last_login_date', 'VARCHAR(20)')
+                ]
+                
+                for col_name, col_type in columns_to_ensure:
+                    if col_name not in cols:
+                        try:
+                            with db.engine.begin() as conn:
+                                print(f"[MIGRATION] Adicionando coluna {col_name} na tabela {table_ref}...")
+                                conn.execute(text(f"ALTER TABLE {table_ref} ADD COLUMN {col_name} {col_type}"))
+                        except Exception as ex:
+                            print(f"[MIGRATION EXCEPTION] Coluna {col_name}: {ex}")
+                            
+            # Se não houver nenhum usuário cadastrado no banco, cria o primeiro Admin
+            if not User.query.first():
+                admin_user = os.environ.get('INITIAL_ADMIN_USER', 'admin')
+                admin_pass = os.environ.get('INITIAL_ADMIN_PASS', 'Admin@123456')
+                admin_obj = User(
+                    username=admin_user,
+                    password_hash=generate_password_hash(admin_pass, method='scrypt'),
+                    is_admin=True,
+                    is_first_login=False,
+                    display_name="Administrador do Sistema"
+                )
+                db.session.add(admin_obj)
+                db.session.commit()
+                print(f"[INFO] Administrador inicial criado com sucesso: login='{admin_user}'")
+        except Exception as e:
+            print(f"[AVISO] Falha ao verificar/migrar tabelas: {e}")
+
+inicializar_banco()
+
 
 
 if __name__ == '__main__':
