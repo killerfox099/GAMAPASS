@@ -635,9 +635,10 @@ def admin_panel():
     users = User.query.order_by(User.id.desc()).all()
     return render_template('admin.html', users=users)
 
-@app.route('/admin/reenviar_convite/<int:user_id>', methods=['POST'])
+@app.route('/admin/reenviar_convite/<int:user_id>', methods=['GET', 'POST'])
 @login_required
 def reenviar_convite(user_id):
+
     if not current_user.is_admin:
         flash('Acesso negado.', 'error')
         return redirect(url_for('dashboard'))
@@ -671,15 +672,18 @@ def reenviar_convite(user_id):
 
 
 
-@app.route('/editar_usuario/<int:user_id>', methods=['POST'])
+@app.route('/editar_usuario/<int:user_id>', methods=['GET', 'POST'])
 @login_required
 def editar_usuario(user_id):
     if not current_user.is_admin:
         flash('Acesso negado.', 'error')
         return redirect(url_for('dashboard'))
+        
+    if request.method == 'GET':
+        return redirect(url_for('admin_panel'))
+
     usuario = User.query.get_or_404(user_id)
     usuario.username = request.form.get('username', usuario.username)
-
     usuario.display_name = request.form.get('display_name', usuario.display_name)
     
     email_val = request.form.get('email', '').strip()
@@ -710,11 +714,14 @@ def editar_usuario(user_id):
 
     return redirect(url_for('admin_panel'))
 
-@app.route('/delete_user/<int:user_id>', methods=['POST'])
+@app.route('/delete_user/<int:user_id>', methods=['GET', 'POST'])
 @login_required
 def delete_user(user_id):
     if not current_user.is_admin:
         flash('Acesso negado.', 'error')
+        return redirect(url_for('admin_panel'))
+        
+    if request.method == 'GET':
         return redirect(url_for('admin_panel'))
 
     usuario = User.query.get_or_404(user_id)
@@ -728,6 +735,7 @@ def delete_user(user_id):
         flash(f'Erro ao excluir: {e}', 'error')
 
     return redirect(url_for('admin_panel'))
+
 
 @app.route('/logout')
 @login_required
