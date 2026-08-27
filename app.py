@@ -76,16 +76,39 @@ def get_client_ip():
     return ip
 
 
+import time
 import ssl
 
-# ================= FUNÇÕES DE E-MAIL (SKYMAIL SSL/TLS) =================
-def enviar_email_recuperacao(destinatario, nova_senha):
-    remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br")
-    senha_email = os.environ.get('EMAIL_SENHA', "EMPTY_PASS")
+# ================= FUNÇÕES DE E-MAIL (SKYMAIL SSL/TLS COM RETRY) =================
+def disparar_email_smtp(destinatario, msg):
+    remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br").strip()
+    senha_email = os.environ.get('EMAIL_SENHA', "EMPTY_PASS").strip()
     
     if not senha_email or senha_email == "EMPTY_PASS" or remetente == "email_padrao@empresa.com.br":
-        print("[SMTP AVISO] EMAIL_REMETENTE ou EMAIL_SENHA não configurados no Render.")
-        return False
+        print("[SMTP AVISO] EMAIL_REMETENTE ou EMAIL_SENHA não configurados.")
+        return False, "Credenciais de e-mail não configuradas no servidor."
+        
+    contexto_ssl = ssl.create_default_context()
+    ultimo_erro = None
+    
+    # Tenta até 3 vezes com reconexão caso o Skymail esteja ocupado ou haja oscilação
+    for tentativa in range(1, 4):
+        try:
+            with smtplib.SMTP_SSL('smtp.skymail.net.br', 465, context=contexto_ssl, timeout=15) as server:
+                server.login(remetente, senha_email)
+                server.send_message(msg)
+            print(f"[SMTP SUCESSO] E-mail enviado para {destinatario} na tentativa {tentativa}!")
+            return True, "Enviado com sucesso"
+        except Exception as e:
+            ultimo_erro = str(e)
+            print(f"[SMTP TENTATIVA {tentativa}/3 FALHOU] Erro: {e}")
+            if tentativa < 3:
+                time.sleep(1.5)
+                
+    return False, ultimo_erro
+
+def enviar_email_recuperacao(destinatario, nova_senha):
+    remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br").strip()
 
     msg = MIMEText(f"Olá!\n\nSua senha do GAMAPASS foi redefinida.\nSua nova senha temporária é: {nova_senha}\n\nAo fazer login, o sistema exigirá o cadastro de uma nova senha segura.", 'plain', 'utf-8')
     msg['Subject'] = 'Recuperação de Acesso - GAMAPASS'
@@ -93,23 +116,11 @@ def enviar_email_recuperacao(destinatario, nova_senha):
     msg['To'] = destinatario
     msg['Reply-To'] = remetente
 
-    try:
-        contexto_ssl = ssl.create_default_context()
-        with smtplib.SMTP_SSL('smtp.skymail.net.br', 465, context=contexto_ssl, timeout=12) as server:
-            server.login(remetente, senha_email)
-            server.send_message(msg)
-        return True
-    except Exception as e:
-        print(f"Erro no envio SMTP de recuperação: {e}")
-        return False
+    sucesso, _ = disparar_email_smtp(destinatario, msg)
+    return sucesso
 
 def enviar_email_convite(destinatario, username, senha_provisoria, link_acesso):
-    remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br")
-    senha_email = os.environ.get('EMAIL_SENHA', "EMPTY_PASS")
-    
-    if not senha_email or senha_email == "EMPTY_PASS" or remetente == "email_padrao@empresa.com.br":
-        print("[SMTP AVISO] EMAIL_REMETENTE ou EMAIL_SENHA não configurados no Render.")
-        return False
+    remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br").strip()
 
     corpo = (
         f"Olá!\n\n"
@@ -130,15 +141,8 @@ def enviar_email_convite(destinatario, username, senha_provisoria, link_acesso):
     msg['To'] = destinatario
     msg['Reply-To'] = remetente
 
-    try:
-        contexto_ssl = ssl.create_default_context()
-        with smtplib.SMTP_SSL('smtp.skymail.net.br', 465, context=contexto_ssl, timeout=12) as server:
-            server.login(remetente, senha_email)
-            server.send_message(msg)
-        return True
-    except Exception as e:
-        print(f"Erro no envio SMTP de convite: {e}")
-        return False
+    return disparar_email_smtp(destinatario, msg)
+
 
 
 
@@ -564,16 +568,15 @@ def admin_panel():
             
             if send_email and full_email:
                 link_acesso = request.host_url.rstrip('/') + url_for('login')
-                enviado = enviar_email_convite(full_email, username, password, link_acesso)
-                if enviado:
-                    flash(f"Funcionário '{username}' cadastrado com sucesso e convite enviado para {full_email}!", 'success')
+                sucesso, detalhe_erro = enviar_email_convite(full_email, username, password, link_acesso)
+                if sucesso:
+                    flash(f"Funcionário '{username}' cadastrado com sucesso e convite entregue em {full_email}!", 'success')
                 else:
-                    flash(f"Funcionário '{username}' cadastrado! Porém houve falha ao enviar o e-mail (verifique as variáveis EMAIL_REMETENTE e EMAIL_SENHA no Render). Senha provisória: {password}", 'warning')
+                    flash(f"Funcionário '{username}' cadastrado com sucesso! Porém o envio do e-mail falhou ({detalhe_erro}). Você pode clicar em '✉️ Reenviar Convite' na lista abaixo para tentar novamente. Senha provisória: {password}", 'warning')
             else:
                 flash(f"Funcionário '{username}' cadastrado com sucesso!", 'success')
                 
             return redirect(url_for('admin_panel'))
-
             
         # CADASTRO EM MASSA
         elif action == 'bulk_create':
@@ -590,7 +593,7 @@ def admin_panel():
             adicionados = 0
             ignorados = 0
             emails_enviados = 0
-            link_acesso = url_for('login', _external=True)
+            link_acesso = request.host_url.rstrip('/') + url_for('login')
             
             for uname in usernames_list:
                 existente = User.query.filter_by(username=uname).first()
@@ -610,7 +613,8 @@ def admin_panel():
                 adicionados += 1
                 
                 if send_email_bulk:
-                    if enviar_email_convite(auto_email, uname, default_password, link_acesso):
+                    sucesso, _ = enviar_email_convite(auto_email, uname, default_password, link_acesso)
+                    if sucesso:
                         emails_enviados += 1
                 
             try:
@@ -649,16 +653,22 @@ def reenviar_convite(user_id):
         
     usuario.password_hash = generate_password_hash(provisional_pass, method='scrypt')
     usuario.is_first_login = True
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao atualizar senha no banco: {e}', 'error')
+        return redirect(url_for('admin_panel'))
     
-    link_acesso = url_for('login', _external=True)
-    sucesso = enviar_email_convite(usuario.email, usuario.username, provisional_pass, link_acesso)
+    link_acesso = request.host_url.rstrip('/') + url_for('login')
+    sucesso, detalhe_erro = enviar_email_convite(usuario.email, usuario.username, provisional_pass, link_acesso)
     if sucesso:
         flash(f"Convite reenviado com sucesso para {usuario.email}! Senha provisória: {provisional_pass}", 'success')
     else:
-        flash(f"Falha ao enviar e-mail para {usuario.email}. A nova senha provisória gerada é: {provisional_pass}", 'warning')
+        flash(f"Falha ao enviar e-mail para {usuario.email} ({detalhe_erro}). A nova senha provisória gerada é: {provisional_pass}", 'warning')
         
     return redirect(url_for('admin_panel'))
+
 
 
 @app.route('/editar_usuario/<int:user_id>', methods=['POST'])
