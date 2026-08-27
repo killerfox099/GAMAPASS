@@ -639,6 +639,10 @@ def admin_panel():
 @login_required
 def reenviar_convite(user_id):
 
+    # Redireciona se acessado diretamente pelo navegador (GET)
+    if request.method == 'GET':
+        return redirect(url_for('admin_panel'))
+
     if not current_user.is_admin:
         flash('Acesso negado.', 'error')
         return redirect(url_for('dashboard'))
