@@ -5,15 +5,34 @@
 {% block content %}
 <div class="container" style="max-width: 800px; width: 100%;">
     <!-- Cabeçalho -->
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; border-bottom: 2px solid var(--navy-blue); padding-bottom: 10px; margin-bottom: 30px; gap: 15px;">
-        <h2 class="vw-font" style="margin:0; font-size: 1.5em;">Olá, {{ current_user.display_name or current_user.username }}</h2>
-        <div style="display: flex; gap: 15px; align-items: center;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; border-bottom: 2px solid var(--navy-blue); padding-bottom: 10px; margin-bottom: 20px; gap: 15px;">
+        <div>
+            <h2 class="vw-font" style="margin:0; font-size: 1.5em; text-align: left;">Olá, {{ current_user.display_name or current_user.username }}</h2>
+            <div style="font-size: 0.85em; color: #555; margin-top: 5px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <span>🏢 {{ current_user.unit or 'Unidade' }} / {{ current_user.department or 'Departamento' }}</span>
+                <span>•</span>
+                <span>🖥️ IP da Máquina: <strong style="color: darkred; font-size: 1.05em;">{{ current_user.machine_ip or 'Não registrado' }}</strong></span>
+                <button type="button" onclick="toggleIpEdit()" style="background: none; border: none; color: var(--navy-blue); font-size: 0.9em; text-decoration: underline; cursor: pointer; padding: 0; width: auto; font-weight: bold;">✏️ Alterar IP</button>
+            </div>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center;">
             {% if current_user.is_admin %}
-                <a href="{{ url_for('admin_panel') }}" style="color: darkred; font-weight: bold; text-decoration: none;">Painel Admin</a>
+                <a href="{{ url_for('admin_panel') }}" style="color: darkred; font-weight: bold; text-decoration: none; border: 1px solid darkred; padding: 6px 12px; border-radius: 4px; font-size: 0.9em;">🛡️ Painel Admin</a>
             {% endif %}
-            <a href="{{ url_for('logout') }}" style="color: var(--navy-blue); font-weight: bold; text-decoration: none;">Sair</a>
+            <a href="{{ url_for('logout') }}" style="color: var(--navy-blue); font-weight: bold; text-decoration: none; border: 1px solid var(--navy-blue); padding: 6px 12px; border-radius: 4px; font-size: 0.9em;">Sair</a>
         </div>
     </div>
+
+    <!-- FORMULÁRIO RÁPIDO DE ALTERAÇÃO DE IP (OCULTO POR PADRÃO) -->
+    <div id="ip-edit-box" style="display: none; background-color: #f0f4f8; border: 1px solid var(--navy-blue); border-radius: 6px; padding: 15px; margin-bottom: 25px;">
+        <form method="POST" action="{{ url_for('atualizar_meu_ip') }}" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 0;">
+            <label style="margin: 0; font-size: 0.9em; white-space: nowrap; font-weight: bold; color: var(--navy-blue);">IP da Máquina:</label>
+            <input type="text" name="machine_ip" value="{{ current_user.machine_ip or '' }}" placeholder="Ex: 10.5.0.123 ou deixe vazio para autodetectar" style="flex: 1 1 220px; padding: 8px 12px;">
+            <button type="submit" style="width: auto; padding: 8px 16px; font-size: 0.9em; background-color: var(--navy-blue);">💾 Salvar IP</button>
+            <button type="button" onclick="toggleIpEdit()" style="width: auto; padding: 8px 16px; font-size: 0.9em; background-color: #6c757d;">Fechar</button>
+        </form>
+    </div>
+
 
     <!-- Formulário de Adicionar -->
     <form method="POST" action="{{ url_for('dashboard') }}" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 30px; align-items: center;">
@@ -281,9 +300,16 @@
                 linha.style.display = "flex"; // Mostra o resultado (usamos flex para manter o formato do seu card)
             } else {
                 linha.style.display = "none"; // Esconde os que não combinam
-            }
+        }
+    }
+
+    function toggleIpEdit() {
+        var box = document.getElementById('ip-edit-box');
+        if (box) {
+            box.style.display = (box.style.display === 'none' || box.style.display === '') ? 'block' : 'none';
         }
     }
 </script>
+
 
 {% endblock %}

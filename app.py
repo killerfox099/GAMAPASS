@@ -5,6 +5,7 @@ import re
 import smtplib
 import random
 import string
+from datetime import datetime
 from email.mime.text import MIMEText
 from flask import Flask, Response, render_template, redirect, url_for, request, flash
 from flask_sqlalchemy import SQLAlchemy
@@ -33,8 +34,6 @@ chave_padrao = 'dCyX0U3oHIROiltcaOR1PwkWry4yhMSLmQve55uDtsA='
 ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY', chave_padrao).strip().encode('utf-8')
 cipher_suite = Fernet(ENCRYPTION_KEY)
 
-
-
 # ================= MODELOS =================
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -50,6 +49,7 @@ class User(UserMixin, db.Model):
     department = db.Column(db.String(100), nullable=True)
     sector = db.Column(db.String(100), nullable=True)
     unit = db.Column(db.String(100), nullable=True)
+    last_login_date = db.Column(db.String(20), nullable=True) # Data no formato YYYY-MM-DD
 
 class SavedPassword(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -62,6 +62,19 @@ class SavedPassword(db.Model):
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+# ================= DETECÇÃO DE IP =================
+def get_client_ip():
+    """Captura o endereço IP real da máquina / conexão do usuário."""
+    if request.headers.get('X-Forwarded-For'):
+        # No Render/Cloudflare, X-Forwarded-For pode ter múltiplos IPs (cliente, proxy)
+        ip = request.headers.get('X-Forwarded-For').split(',')[0].strip()
+    elif request.headers.get('X-Real-IP'):
+        ip = request.headers.get('X-Real-IP').strip()
+    else:
+        ip = request.remote_addr or '127.0.0.1'
+    return ip
+
 
 # ================= FUNÇÕES DE E-MAIL (SKYMAIL) =================
 def enviar_email_recuperacao(destinatario, nova_senha):
@@ -125,6 +138,23 @@ def login():
         user = User.query.filter_by(username=username).first()
         if user and check_password_hash(user.password_hash, password):
             login_user(user)
+            
+            # Atualiza o IP da máquina diariamente no primeiro login do dia
+            hoje = datetime.now().strftime('%Y-%m-%d')
+            detected_ip = get_client_ip()
+            
+            if user.last_login_date != hoje:
+                user.last_login_date = hoje
+                if detected_ip and detected_ip not in ['127.0.0.1', 'localhost', '::1']:
+                    user.machine_ip = detected_ip
+            elif not user.machine_ip and detected_ip and detected_ip not in ['127.0.0.1', 'localhost', '::1']:
+                user.machine_ip = detected_ip
+                
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+            
             if user.requires_password_reset:
                 return redirect(url_for('force_password_reset'))
             if user.is_first_login:
@@ -190,7 +220,35 @@ def first_setup():
         flash('Cadastro concluído com sucesso!', 'success')
         return redirect(url_for('dashboard'))
         
+    detected_ip = get_client_ip()
+    suggested_ip = current_user.machine_ip or (detected_ip if detected_ip not in ['127.0.0.1', 'localhost', '::1'] else '')
+    form_data = {
+        'display_name': current_user.display_name or '',
+        'email': current_user.email or '',
+        'machine_ip': suggested_ip
+    }
     return render_template('first_setup.html', form_data=form_data)
+
+@app.route('/atualizar_meu_ip', methods=['POST'])
+@login_required
+def atualizar_meu_ip():
+    novo_ip = request.form.get('machine_ip', '').strip()
+    if novo_ip:
+        current_user.machine_ip = novo_ip
+        try:
+            db.session.commit()
+            flash(f'IP da máquina atualizado com sucesso para: {novo_ip}', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao salvar IP: {e}', 'error')
+    else:
+        detected = get_client_ip()
+        current_user.machine_ip = detected
+        db.session.commit()
+        flash(f'IP da máquina atualizado para o IP de conexão detectado: {detected}', 'success')
+        
+    return redirect(url_for('dashboard'))
+
 
 @app.route('/redefinir-senha', methods=['GET', 'POST'])
 @login_required
@@ -649,6 +707,16 @@ def logout():
 with app.app_context():
     try:
         db.create_all()
+        
+        # Migração automática e segura para SQLite caso a coluna seja nova
+        try:
+            from sqlalchemy import text
+            with db.engine.connect() as conn:
+                conn.execute(text("ALTER TABLE user ADD COLUMN last_login_date VARCHAR(20)"))
+                conn.commit()
+        except Exception:
+            pass # Coluna já existe ou banco é novo
+            
         # Se não houver nenhum usuário cadastrado no banco, cria o primeiro Admin
         if not User.query.first():
             admin_user = os.environ.get('INITIAL_ADMIN_USER', 'admin')
@@ -665,6 +733,7 @@ with app.app_context():
             print(f"[INFO] Administrador inicial criado com sucesso: login='{admin_user}'")
     except Exception as e:
         print(f"[AVISO] Falha ao inicializar tabelas na inicialização: {e}")
+
 
 if __name__ == '__main__':
     porta = int(os.environ.get('PORT', 5000))
