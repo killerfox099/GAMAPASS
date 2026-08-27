@@ -76,7 +76,9 @@ def get_client_ip():
     return ip
 
 
-# ================= FUNÇÕES DE E-MAIL (SKYMAIL) =================
+import ssl
+
+# ================= FUNÇÕES DE E-MAIL (SKYMAIL SSL/TLS) =================
 def enviar_email_recuperacao(destinatario, nova_senha):
     remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br")
     senha_email = os.environ.get('EMAIL_SENHA', "EMPTY_PASS")
@@ -87,11 +89,13 @@ def enviar_email_recuperacao(destinatario, nova_senha):
 
     msg = MIMEText(f"Olá!\n\nSua senha do GAMAPASS foi redefinida.\nSua nova senha temporária é: {nova_senha}\n\nAo fazer login, o sistema exigirá o cadastro de uma nova senha segura.", 'plain', 'utf-8')
     msg['Subject'] = 'Recuperação de Acesso - GAMAPASS'
-    msg['From'] = remetente
+    msg['From'] = f"GAMAPASS - Gama Caminhões <{remetente}>"
     msg['To'] = destinatario
+    msg['Reply-To'] = remetente
 
     try:
-        with smtplib.SMTP_SSL('smtp.skymail.net.br', 465, timeout=8) as server:
+        contexto_ssl = ssl.create_default_context()
+        with smtplib.SMTP_SSL('smtp.skymail.net.br', 465, context=contexto_ssl, timeout=12) as server:
             server.login(remetente, senha_email)
             server.send_message(msg)
         return True
@@ -109,7 +113,7 @@ def enviar_email_convite(destinatario, username, senha_provisoria, link_acesso):
 
     corpo = (
         f"Olá!\n\n"
-        f"Você foi cadastrado na plataforma GAMAPASS — o cofre seguro de senhas e credenciais corporativas da Gama Caminhões.\n\n"
+        f"Você foi cadastrado na plataforma GAMAPASS — o cofre corporativo de credenciais e senhas da Gama Caminhões.\n\n"
         f"Abaixo estão os seus dados para o primeiro acesso:\n"
         f"🔗 Link de Acesso: {link_acesso}\n"
         f"👤 Usuário: {username}\n"
@@ -122,17 +126,20 @@ def enviar_email_convite(destinatario, username, senha_provisoria, link_acesso):
     
     msg = MIMEText(corpo, 'plain', 'utf-8')
     msg['Subject'] = 'Convite de Acesso - GAMAPASS (Gama Caminhões)'
-    msg['From'] = remetente
+    msg['From'] = f"GAMAPASS - Gama Caminhões <{remetente}>"
     msg['To'] = destinatario
+    msg['Reply-To'] = remetente
 
     try:
-        with smtplib.SMTP_SSL('smtp.skymail.net.br', 465, timeout=8) as server:
+        contexto_ssl = ssl.create_default_context()
+        with smtplib.SMTP_SSL('smtp.skymail.net.br', 465, context=contexto_ssl, timeout=12) as server:
             server.login(remetente, senha_email)
             server.send_message(msg)
         return True
     except Exception as e:
         print(f"Erro no envio SMTP de convite: {e}")
         return False
+
 
 
 
