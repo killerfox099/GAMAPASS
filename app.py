@@ -63,12 +63,12 @@ class SavedPassword(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# ================= FUNÇÃO DE E-MAIL (SKYMAIL) =================
+# ================= FUNÇÕES DE E-MAIL (SKYMAIL) =================
 def enviar_email_recuperacao(destinatario, nova_senha):
     remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br")
     senha_email = os.environ.get('EMAIL_SENHA', "EMPTY_PASS")
     
-    msg = MIMEText(f"Olá!\n\nSua senha do GAMAPASS foi redefinida.\nSua nova senha temporária é: {nova_senha}\n\nAo fazer login, o sistema exigirá o cadastro de uma nova senha segura.")
+    msg = MIMEText(f"Olá!\n\nSua senha do GAMAPASS foi redefinida.\nSua nova senha temporária é: {nova_senha}\n\nAo fazer login, o sistema exigirá o cadastro de uma nova senha segura.", 'plain', 'utf-8')
     msg['Subject'] = 'Recuperação de Acesso - GAMAPASS'
     msg['From'] = remetente
     msg['To'] = destinatario
@@ -79,8 +79,40 @@ def enviar_email_recuperacao(destinatario, nova_senha):
             server.send_message(msg)
         return True
     except Exception as e:
-        print(f"Erro no envio SMTP: {e}")
+        print(f"Erro no envio SMTP de recuperação: {e}")
         return False
+
+def enviar_email_convite(destinatario, username, senha_provisoria, link_acesso):
+    remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br")
+    senha_email = os.environ.get('EMAIL_SENHA', "EMPTY_PASS")
+    
+    corpo = (
+        f"Olá!\n\n"
+        f"Você foi cadastrado na plataforma GAMAPASS — o cofre seguro de senhas e credenciais corporativas da Gama Caminhões.\n\n"
+        f"Abaixo estão os seus dados para o primeiro acesso:\n"
+        f"🔗 Link de Acesso: {link_acesso}\n"
+        f"👤 Usuário: {username}\n"
+        f"🔑 Senha Provisória: {senha_provisoria}\n\n"
+        f"⚠️ Importante: Ao fazer login pela primeira vez, o sistema solicitará obrigatoriamente que você cadastre sua senha pessoal definitiva e complete seus dados.\n\n"
+        f"Atenciosamente,\n"
+        f"Equipe de Tecnologia da Informação\n"
+        f"Gama Caminhões"
+    )
+    
+    msg = MIMEText(corpo, 'plain', 'utf-8')
+    msg['Subject'] = 'Convite de Acesso - GAMAPASS (Gama Caminhões)'
+    msg['From'] = remetente
+    msg['To'] = destinatario
+
+    try:
+        with smtplib.SMTP_SSL('smtp.skymail.net.br', 465) as server:
+            server.login(remetente, senha_email)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"Erro no envio SMTP de convite: {e}")
+        return False
+
 
 # ================= ROTAS DE AUTENTICAÇÃO =================
 @app.route('/', methods=['GET', 'POST'])
@@ -419,10 +451,56 @@ def admin_panel():
         
     if request.method == 'POST':
         action = request.form.get('action')
-        if action == 'bulk_create':
+        
+        # CADASTRO INDIVIDUAL COM CONVITE POR E-MAIL
+        if action == 'create_single':
+            username = request.form.get('username', '').strip()
+            email_prefix = request.form.get('email_prefix', '').strip()
+            password = request.form.get('password', '').strip()
+            is_admin = request.form.get('is_admin') == 'on'
+            send_email = request.form.get('send_email') == 'on'
+            
+            if not username or not password:
+                flash('Preencha o login e a senha provisória.', 'error')
+                return redirect(url_for('admin_panel'))
+                
+            if User.query.filter_by(username=username).first():
+                flash(f"Erro: O usuário '{username}' já existe no sistema.", 'error')
+                return redirect(url_for('admin_panel'))
+                
+            full_email = None
+            if email_prefix:
+                clean_prefix = email_prefix.split('@')[0].strip()
+                full_email = f"{clean_prefix}@gamacaminhoes.com.br"
+                
+            novo_usuario = User(
+                username=username,
+                email=full_email,
+                password_hash=generate_password_hash(password, method='scrypt'),
+                is_admin=is_admin,
+                is_first_login=True
+            )
+            db.session.add(novo_usuario)
+            db.session.commit()
+            
+            if send_email and full_email:
+                link_acesso = url_for('login', _external=True)
+                enviado = enviar_email_convite(full_email, username, password, link_acesso)
+                if enviado:
+                    flash(f"Funcionário '{username}' cadastrado com sucesso e convite enviado para {full_email}!", 'success')
+                else:
+                    flash(f"Funcionário '{username}' cadastrado! Porém houve falha ao enviar o e-mail (verifique as credenciais do Skymail). Senha provisória: {password}", 'warning')
+            else:
+                flash(f"Funcionário '{username}' cadastrado com sucesso!", 'success')
+                
+            return redirect(url_for('admin_panel'))
+            
+        # CADASTRO EM MASSA
+        elif action == 'bulk_create':
             bulk_usernames = request.form.get('bulk_usernames')
             default_password = request.form.get('default_password')
             is_admin = request.form.get('is_admin') == 'on'
+            send_email_bulk = request.form.get('send_email_bulk') == 'on'
             
             if not bulk_usernames or not default_password:
                 flash('Preencha os logins e a senha provisória.', 'error')
@@ -431,6 +509,8 @@ def admin_panel():
             usernames_list = [u.strip() for u in bulk_usernames.split(',') if u.strip()]
             adicionados = 0
             ignorados = 0
+            emails_enviados = 0
+            link_acesso = url_for('login', _external=True)
             
             for uname in usernames_list:
                 existente = User.query.filter_by(username=uname).first()
@@ -438,8 +518,10 @@ def admin_panel():
                     ignorados += 1
                     continue
                     
+                auto_email = f"{uname.split('@')[0].strip()}@gamacaminhoes.com.br"
                 novo_usuario = User(
                     username=uname,
+                    email=auto_email,
                     password_hash=generate_password_hash(default_password, method='scrypt'),
                     is_admin=is_admin,
                     is_first_login=True
@@ -447,20 +529,57 @@ def admin_panel():
                 db.session.add(novo_usuario)
                 adicionados += 1
                 
+                if send_email_bulk:
+                    if enviar_email_convite(auto_email, uname, default_password, link_acesso):
+                        emails_enviados += 1
+                
             try:
                 db.session.commit()
+                msg_sucesso = f"{adicionados} usuário(s) criados com sucesso!"
+                if send_email_bulk:
+                    msg_sucesso += f" ({emails_enviados} e-mails de convite disparados)."
                 if adicionados > 0:
-                    flash(f'{adicionados} usuário(s) criados com sucesso!', 'success')
+                    flash(msg_sucesso, 'success')
                 if ignorados > 0:
-                    flash(f'{ignorados} usuário(s) ignorados pois já existiam.', 'warning')
+                    flash(f"{ignorados} usuário(s) ignorados pois já existiam.", 'warning')
             except Exception as e:
                 db.session.rollback()
                 flash(f'Erro interno: {e}', 'error')
                 
             return redirect(url_for('admin_panel'))
 
-    users = User.query.all()
+    users = User.query.order_by(User.id.desc()).all()
     return render_template('admin.html', users=users)
+
+@app.route('/admin/reenviar_convite/<int:user_id>', methods=['POST'])
+@login_required
+def reenviar_convite(user_id):
+    if not current_user.is_admin:
+        flash('Acesso negado.', 'error')
+        return redirect(url_for('dashboard'))
+        
+    usuario = User.query.get_or_404(user_id)
+    if not usuario.email:
+        flash(f"O usuário '{usuario.username}' não possui e-mail cadastrado.", 'error')
+        return redirect(url_for('admin_panel'))
+        
+    provisional_pass = request.form.get('provisional_password', '').strip()
+    if not provisional_pass:
+        provisional_pass = ''.join(random.choices(string.ascii_letters + string.digits, k=8)) + '@!'
+        
+    usuario.password_hash = generate_password_hash(provisional_pass, method='scrypt')
+    usuario.is_first_login = True
+    db.session.commit()
+    
+    link_acesso = url_for('login', _external=True)
+    sucesso = enviar_email_convite(usuario.email, usuario.username, provisional_pass, link_acesso)
+    if sucesso:
+        flash(f"Convite reenviado com sucesso para {usuario.email}! Senha provisória: {provisional_pass}", 'success')
+    else:
+        flash(f"Falha ao enviar e-mail para {usuario.email}. A nova senha provisória gerada é: {provisional_pass}", 'warning')
+        
+    return redirect(url_for('admin_panel'))
+
 
 @app.route('/editar_usuario/<int:user_id>', methods=['POST'])
 @login_required
@@ -468,16 +587,26 @@ def editar_usuario(user_id):
     if not current_user.is_admin:
         flash('Acesso negado.', 'error')
         return redirect(url_for('dashboard'))
-
     usuario = User.query.get_or_404(user_id)
     usuario.username = request.form.get('username', usuario.username)
+
     usuario.display_name = request.form.get('display_name', usuario.display_name)
+    
+    email_val = request.form.get('email', '').strip()
+    if email_val:
+        if '@' not in email_val:
+            email_val = f"{email_val}@gamacaminhoes.com.br"
+        usuario.email = email_val
+    else:
+        usuario.email = None
+        
     usuario.department = request.form.get('department', usuario.department)
     usuario.sector = request.form.get('sector', usuario.sector)
     usuario.unit = request.form.get('unit', usuario.unit)
     usuario.machine_ip = request.form.get('machine_ip', usuario.machine_ip)
     
     nova_senha = request.form.get('new_password')
+
     if nova_senha and nova_senha.strip() != '':
         usuario.password_hash = generate_password_hash(nova_senha, method='scrypt')
         usuario.requires_password_reset = True

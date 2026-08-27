@@ -3,79 +3,185 @@
 {% block main_style %}align-items: flex-start; padding-top: 80px;{% endblock %}
 
 {% block content %}
-<div class="container" style="max-width: 900px; width: 100%;"> 
+<div class="container" style="max-width: 950px; width: 100%;"> 
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid darkred; padding-bottom: 10px; margin-bottom: 30px;">
-        <h2 class="vw-font" style="color: darkred; margin: 0;">Administração GAMA</h2>
-        <a href="{{ url_for('dashboard') }}" style="color: var(--navy-blue); font-weight: bold; text-decoration: none;">Voltar ao Cofre</a>
+        <div>
+            <h2 class="vw-font" style="color: darkred; margin: 0; text-align: left;">Administração GAMA</h2>
+            <small style="color: #666;">Gestão de Acessos e Convites de Funcionários</small>
+        </div>
+        <a href="{{ url_for('dashboard') }}" style="color: var(--navy-blue); font-weight: bold; text-decoration: none; border: 1px solid var(--navy-blue); padding: 8px 15px; border-radius: 4px;">Voltar ao Cofre</a>
     </div>
 
-    <!-- CADASTRAR USUÁRIOS EM MASSA -->
-    <div style="background-color: #f0f4f8; padding: 20px; border-radius: 8px; margin-bottom: 30px; border-left: 5px solid var(--navy-blue);">
-        <h4 class="vw-font" style="margin-top: 0; color: var(--navy-blue);">Cadastrar Novo(s) Usuário(s)</h4>
-        <p style="font-size: 0.9em; margin-bottom: 15px;">Insira um ou vários logins separados por vírgula (ex: <i>joao.silva, maria.rh, pedro.vendas</i>).</p>
+    <!-- CADASTRO INDIVIDUAL COM CONVITE POR E-MAIL -->
+    <div style="background-color: #f0f4f8; padding: 25px; border-radius: 8px; margin-bottom: 30px; border-left: 5px solid var(--navy-blue); box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
+        <h3 class="vw-font" style="margin-top: 0; margin-bottom: 10px; color: var(--navy-blue); text-align: left;">
+            ✉️ Cadastrar Funcionário & Enviar Convite
+        </h3>
+        <p style="font-size: 0.9em; color: #555; margin-bottom: 20px;">
+            Cadastre o funcionário e envie automaticamente o link de acesso à plataforma com a senha provisória para o e-mail corporativo dele.
+        </p>
         
-        <form method="POST" action="{{ url_for('admin_panel') }}" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
-            <input type="hidden" name="action" value="bulk_create">
+        <form method="POST" action="{{ url_for('admin_panel') }}" id="single-user-form">
+            <input type="hidden" name="action" value="create_single">
             
-            <div class="form-group" style="flex: 2 1 250px; margin-bottom: 0;">
-                <label>Logins (Separados por vírgula)</label>
-                <input type="text" name="bulk_usernames" placeholder="Ex: marcos.ti, ana.qualidade" required>
-            </div>
-            
-            <div class="form-group" style="flex: 1 1 200px; margin-bottom: 0;">
-                <label>Senha Provisória Única</label>
-                <div class="input-with-icon">
-                    <input type="password" id="bulk_pass" name="default_password" required>
-                    <button type="button" class="toggle-icon" onclick="togglePassword('bulk_pass', this)">👁️</button>
+            <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;">
+                <!-- Login do Usuário -->
+                <div class="form-group" style="flex: 1 1 250px; margin-bottom: 0;">
+                    <label style="margin-bottom: 5px;">Login (Usuário) *</label>
+                    <input type="text" name="username" id="single_username" placeholder="Ex: marcos.silva" required oninput="syncEmailPrefix(this.value)">
+                </div>
+                
+                <!-- E-mail Corporativo (@gamacaminhoes.com.br) -->
+                <div class="form-group" style="flex: 2 1 320px; margin-bottom: 0;">
+                    <label style="margin-bottom: 5px;">E-mail Corporativo *</label>
+                    <div style="display: flex; align-items: center; width: 100%;">
+                        <input type="text" name="email_prefix" id="single_email_prefix" placeholder="Ex: marcos.silva" style="border-top-right-radius: 0; border-bottom-right-radius: 0; flex: 1;">
+                        <span style="background-color: #e2e8f0; border: 1px solid #ccc; border-left: none; padding: 12px 14px; border-top-right-radius: 4px; border-bottom-right-radius: 4px; font-weight: bold; color: var(--navy-blue); font-size: 0.9em; white-space: nowrap;">@gamacaminhoes.com.br</span>
+                    </div>
                 </div>
             </div>
-            
-            <div class="form-group" style="flex: 0 1 auto; margin-bottom: 0; display: flex; align-items: center; gap: 5px; height: 45px;">
-                <input type="checkbox" name="is_admin" id="is_admin" style="width: 20px; height: 20px;">
-                <label for="is_admin" style="margin-bottom: 0; cursor: pointer; white-space: nowrap;">Serão Admins?</label>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; align-items: flex-end;">
+                <!-- Senha Provisória -->
+                <div class="form-group" style="flex: 1 1 300px; margin-bottom: 0;">
+                    <label style="margin-bottom: 5px;">Senha Provisória *</label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <div class="input-with-icon" style="flex: 1;">
+                            <input type="password" id="single_pass" name="password" placeholder="Digite ou gere a senha..." required>
+                            <button type="button" class="toggle-icon" onclick="togglePassword('single_pass', this)">👁️</button>
+                        </div>
+                        <button type="button" onclick="generateProvisionalPassword('single_pass')" style="width: auto; padding: 12px 16px; font-size: 0.9em; background-color: #2b7a4b; color: white; white-space: nowrap; border-radius: 4px;" title="Gerar Senha Aleatória">🎲 Gerar Senha</button>
+                    </div>
+                </div>
+
+                <!-- Checkboxes -->
+                <div style="flex: 1 1 250px; display: flex; flex-direction: column; gap: 10px; justify-content: center; height: 100%; padding-bottom: 5px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" name="send_email" id="send_email" checked style="width: 18px; height: 18px; cursor: pointer;">
+                        <label for="send_email" style="margin-bottom: 0; cursor: pointer; font-size: 0.95em; color: #333;">Enviar convite por e-mail agora</label>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" name="is_admin" id="single_is_admin" style="width: 18px; height: 18px; cursor: pointer;">
+                        <label for="single_is_admin" style="margin-bottom: 0; cursor: pointer; font-size: 0.95em; color: darkred; font-weight: bold;">Tornar Administrador</label>
+                    </div>
+                </div>
             </div>
-            
-            <button type="submit" style="flex: 0 1 auto; padding: 12px 25px; height: 45px; white-space: nowrap;">Cadastrar</button>
+
+            <button type="submit" style="background-color: var(--navy-blue); padding: 14px; font-size: 1.05em; border-radius: 4px; box-shadow: 0 3px 6px rgba(0,0,0,0.15);">
+                ✉️ Cadastrar Funcionário & Enviar Convite
+            </button>
         </form>
+
+        <!-- SEÇÃO EXPANSÍVEL PARA CADASTRO EM MASSA -->
+        <details style="margin-top: 25px; background-color: #fff; padding: 15px; border-radius: 6px; border: 1px solid #d0dbe5;">
+            <summary style="font-weight: bold; color: var(--navy-blue); cursor: pointer; font-size: 0.95em;">
+                ⚙️ Deseja cadastrar múltiplos usuários de uma vez? (Clique para expandir)
+            </summary>
+            <form method="POST" action="{{ url_for('admin_panel') }}" style="margin-top: 15px; display: flex; flex-direction: column; gap: 15px;">
+                <input type="hidden" name="action" value="bulk_create">
+                
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Logins separados por vírgula</label>
+                    <input type="text" name="bulk_usernames" placeholder="Ex: joao.silva, maria.rh, pedro.vendas" required>
+                    <small style="color: #666;">O e-mail será gerado automaticamente como <code>login@gamacaminhoes.com.br</code>.</small>
+                </div>
+                
+                <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
+                    <div class="form-group" style="flex: 1 1 250px; margin-bottom: 0;">
+                        <label>Senha Provisória Única</label>
+                        <div class="input-with-icon">
+                            <input type="password" id="bulk_pass" name="default_password" required>
+                            <button type="button" class="toggle-icon" onclick="togglePassword('bulk_pass', this)">👁️</button>
+                        </div>
+                    </div>
+                    
+                    <div style="flex: 1 1 250px; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" name="send_email_bulk" id="send_email_bulk" checked style="width: 18px; height: 18px;">
+                            <label for="send_email_bulk" style="margin-bottom: 0; cursor: pointer; font-size: 0.9em;">Enviar e-mail para todos</label>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" name="is_admin" id="bulk_is_admin" style="width: 18px; height: 18px;">
+                            <label for="bulk_is_admin" style="margin-bottom: 0; cursor: pointer; font-size: 0.9em;">Tornar Administradores</label>
+                        </div>
+                    </div>
+
+                    <button type="submit" style="width: auto; padding: 12px 25px; background-color: #555;">Cadastrar em Massa</button>
+                </div>
+            </form>
+        </details>
     </div>
 
-    <h3 class="vw-font" style="color: var(--navy-blue);">Equipe Cadastrada</h3>
+    <!-- LISTA DE EQUIPE CADASTRADA -->
+    <h3 class="vw-font" style="color: var(--navy-blue); text-align: left; margin-bottom: 15px;">Equipe Cadastrada ({{ users|length }})</h3>
     
     {% for user in users %}
-        <div class="admin-card" style="flex-direction: column; align-items: stretch; gap: 15px;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div class="admin-card" style="flex-direction: column; align-items: stretch; gap: 15px; margin-bottom: 20px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
                 <div>
-                    <strong style="font-size: 1.2em; color: var(--navy-blue);">{{ user.display_name or 'Pendente de Configuração' }}</strong> 
-                    (<code>{{ user.username }}</code>)<br>
-                    <span style="background-color: {% if user.is_admin %}darkred{% else %}var(--navy-blue){% endif %}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold; display: inline-block; margin-top: 5px;">
-                        {% if user.is_admin %}Administrador{% else %}Funcionário{% endif %}
-                    </span>
+                    <strong style="font-size: 1.25em; color: var(--navy-blue);">{{ user.display_name or 'Pendente de Configuração' }}</strong> 
+                    <span style="color: #666; font-size: 0.95em;">(<code>{{ user.username }}</code>)</span><br>
+                    
+                    <div style="display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap;">
+                        <span style="background-color: {% if user.is_admin %}darkred{% else %}var(--navy-blue){% endif %}; color: white; padding: 3px 10px; border-radius: 4px; font-size: 0.8em; font-weight: bold; display: inline-block;">
+                            {% if user.is_admin %}🛡️ Administrador{% else %}👤 Funcionário{% endif %}
+                        </span>
+                        {% if user.email %}
+                            <span style="font-size: 0.85em; color: #4a5568; background-color: #edf2f7; padding: 3px 8px; border-radius: 4px;">
+                                📧 {{ user.email }}
+                            </span>
+                        {% else %}
+                            <span style="font-size: 0.85em; color: #a0aec0; font-style: italic;">
+                                (Sem e-mail cadastrado)
+                            </span>
+                        {% endif %}
+                        {% if user.is_first_login %}
+                            <span style="font-size: 0.8em; color: #b7791f; background-color: #fefcbf; padding: 2px 8px; border-radius: 4px; font-weight: 600;">
+                                ⏳ Primeiro Acesso Pendente
+                            </span>
+                        {% endif %}
+                    </div>
                 </div>
-                <div style="display: flex; gap: 10px;">
-                    <button type="button" onclick="toggleEditForm('{{ user.id }}')" style="width: auto; padding: 8px 15px; font-size: 0.9em; background-color: #555;">✏️ Editar</button>
+
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <!-- Botão Reenviar Convite por E-mail -->
+                    {% if user.email %}
+                        <form method="POST" action="{{ url_for('reenviar_convite', user_id=user.id) }}" onsubmit="return confirm('Deseja gerar uma nova senha provisória e reenviar o convite por e-mail para {{ user.email }}?');" style="margin: 0;">
+                            <button type="submit" style="width: auto; padding: 8px 14px; font-size: 0.85em; background-color: #2b7a4b;" title="Reenviar link de acesso com nova senha">
+                                ✉️ Reenviar Convite
+                            </button>
+                        </form>
+                    {% endif %}
+
+                    <button type="button" onclick="toggleEditForm('{{ user.id }}')" style="width: auto; padding: 8px 14px; font-size: 0.85em; background-color: #4a5568;">✏️ Editar</button>
+                    
                     <!-- Formulário para Apagar Usuário -->
-                    <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" onsubmit="return confirm('ATENÇÃO: Apagar este usuário também apagará todas as senhas guardadas por ele. Deseja prosseguir?');">
-                        <button type="submit" class="btn-danger" style="width: auto; padding: 8px 15px; font-size: 0.9em;" {% if user.id == current_user.id %}disabled title="Você não pode apagar a si mesmo"{% endif %}>🗑️ Apagar</button>
+                    <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" onsubmit="return confirm('ATENÇÃO: Apagar este usuário também apagará todas as senhas guardadas por ele. Deseja prosseguir?');" style="margin: 0;">
+                        <button type="submit" class="btn-danger" style="width: auto; padding: 8px 14px; font-size: 0.85em;" {% if user.id == current_user.id %}disabled title="Você não pode apagar a si mesmo"{% endif %}>🗑️ Apagar</button>
                     </form>
                 </div>
             </div>
             
-            <div id="view-mode-{{ user.id }}" style="background-color: #f9f9f9; padding: 12px; border-radius: 4px; border: 1px solid #e0e0e0; font-size: 0.9em; display: flex; flex-wrap: wrap; gap: 20px;">
-                <div><span style="color: #666;">Unidade:</span><br><strong>{{ user.unit or 'Não preenchido' }}</strong></div>
-                <div><span style="color: #666;">Departamento:</span><br><strong>{{ user.department or 'Não preenchido' }}</strong></div>
-                <div><span style="color: #666;">Setor:</span><br><strong>{{ user.sector or 'Não preenchido' }}</strong></div>
-                <div><span style="color: #666;">IP da Máquina:</span><br><code style="color: darkred; font-size: 1.1em;">{{ user.machine_ip or 'Não preenchido' }}</code></div>
+            <div id="view-mode-{{ user.id }}" style="background-color: #f8fafc; padding: 12px 16px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.9em; display: flex; flex-wrap: wrap; gap: 20px;">
+                <div><span style="color: #718096; font-size: 0.85em;">Unidade:</span><br><strong>{{ user.unit or 'Não preenchido' }}</strong></div>
+                <div><span style="color: #718096; font-size: 0.85em;">Departamento:</span><br><strong>{{ user.department or 'Não preenchido' }}</strong></div>
+                <div><span style="color: #718096; font-size: 0.85em;">Setor:</span><br><strong>{{ user.sector or 'Não preenchido' }}</strong></div>
+                <div><span style="color: #718096; font-size: 0.85em;">IP da Máquina:</span><br><code style="color: darkred; font-size: 1.05em; font-weight: bold;">{{ user.machine_ip or 'Não preenchido' }}</code></div>
             </div>
 
-            <!-- MODO EDIÇÃO (Omitido para não poluir, ele continua igual com o id edit-mode-x) -->
-            <div id="edit-mode-{{ user.id }}" style="display: none; background-color: #e6ecf2; padding: 15px; border: 1px solid var(--navy-blue); border-radius: 4px; margin-top: 5px;">
-                
+            <!-- MODO EDIÇÃO -->
+            <div id="edit-mode-{{ user.id }}" style="display: none; background-color: #edf2f7; padding: 18px; border: 1px solid var(--navy-blue); border-radius: 6px; margin-top: 5px;">
                 <form method="POST" action="{{ url_for('editar_usuario', user_id=user.id) }}">
-                    <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-                        <div class="form-group" style="flex: 1 1 45%; margin-bottom: 10px;"><label>Login</label><input type="text" name="username" value="{{ user.username }}" required></div>
-                        <div class="form-group" style="flex: 1 1 45%; margin-bottom: 10px;"><label>Nome</label><input type="text" name="display_name" value="{{ user.display_name or '' }}"></div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+                        <div class="form-group" style="flex: 1 1 45%; margin-bottom: 5px;"><label>Login</label><input type="text" name="username" value="{{ user.username }}" required></div>
+                        <div class="form-group" style="flex: 1 1 45%; margin-bottom: 5px;"><label>Nome Completo</label><input type="text" name="display_name" value="{{ user.display_name or '' }}"></div>
                         
-                        <div class="form-group" style="flex: 1 1 45%; margin-bottom: 10px;"><label>Unidade</label>
+                        <div class="form-group" style="flex: 1 1 100%; margin-bottom: 5px;">
+                            <label>E-mail Corporativo</label>
+                            <input type="text" name="email" value="{{ user.email or '' }}" placeholder="exemplo@gamacaminhoes.com.br">
+                        </div>
+
+                        <div class="form-group" style="flex: 1 1 45%; margin-bottom: 5px;"><label>Unidade</label>
                             <select name="unit">
                                 <option value="" {% if not user.unit %}selected{% endif %}>Selecione...</option>
                                 <option value="Campina Grande" {% if user.unit == 'Campina Grande' %}selected{% endif %}>Campina Grande</option>
@@ -83,7 +189,7 @@
                             </select>
                         </div>
                         
-                        <div class="form-group" style="flex: 1 1 45%; margin-bottom: 10px;"><label>Departamento</label>
+                        <div class="form-group" style="flex: 1 1 45%; margin-bottom: 5px;"><label>Departamento</label>
                             <select name="department">
                                 <option value="" {% if not user.department %}selected{% endif %}>Selecione...</option>
                                 <option value="Qualidade" {% if user.department == 'Qualidade' %}selected{% endif %}>Qualidade</option>
@@ -95,20 +201,20 @@
                             </select>
                         </div>
                         
-                        <div class="form-group" style="flex: 1 1 45%; margin-bottom: 10px;"><label>Setor</label><input type="text" name="sector" value="{{ user.sector or '' }}"></div>
-                        <div class="form-group" style="flex: 1 1 45%; margin-bottom: 10px;"><label>IP da Máquina</label><input type="text" name="machine_ip" value="{{ user.machine_ip or '' }}"></div>
+                        <div class="form-group" style="flex: 1 1 45%; margin-bottom: 5px;"><label>Setor</label><input type="text" name="sector" value="{{ user.sector or '' }}"></div>
+                        <div class="form-group" style="flex: 1 1 45%; margin-bottom: 5px;"><label>IP da Máquina</label><input type="text" name="machine_ip" value="{{ user.machine_ip or '' }}"></div>
                         
                         <div class="form-group" style="flex: 1 1 100%; margin-bottom: 0;">
-                            <label style="color: darkred;">Redefinir Senha Mestre</label>
+                            <label style="color: darkred;">Redefinir Senha do Usuário</label>
                             <div class="input-with-icon">
-                                <input type="password" id="admin_pass_{{ user.id }}" name="new_password" placeholder="Nova senha se necessário...">
+                                <input type="password" id="admin_pass_{{ user.id }}" name="new_password" placeholder="Digite uma nova senha se desejar alterar...">
                                 <button type="button" class="toggle-icon" onclick="togglePassword('admin_pass_{{ user.id }}', this)">👁️</button>
                             </div>
                         </div>
                     </div>
                     <div style="display: flex; gap: 10px; margin-top: 15px;">
-                        <button type="submit" style="background-color: darkred; flex: 1;">Salvar Alterações</button>
-                        <button type="button" onclick="toggleEditForm('{{ user.id }}')" class="btn-secondary" style="flex: 1;">Cancelar</button>
+                        <button type="submit" style="background-color: darkred; flex: 1;">💾 Salvar Alterações</button>
+                        <button type="button" onclick="toggleEditForm('{{ user.id }}')" class="btn-secondary" style="flex: 1; background-color: #6c757d;">Cancelar</button>
                     </div>
                 </form>
             </div>
@@ -120,13 +226,42 @@
     function toggleEditForm(userId) {
         const viewMode = document.getElementById('view-mode-' + userId);
         const editMode = document.getElementById('edit-mode-' + userId);
-        if (editMode.style.display === 'none') { editMode.style.display = 'block'; viewMode.style.display = 'none'; } 
-        else { editMode.style.display = 'none'; viewMode.style.display = 'flex'; }
+        if (editMode.style.display === 'none') { 
+            editMode.style.display = 'block'; 
+            viewMode.style.display = 'none'; 
+        } else { 
+            editMode.style.display = 'none'; 
+            viewMode.style.display = 'flex'; 
+        }
     }
+
     function togglePassword(inputId, btnElement) {
         var input = document.getElementById(inputId);
         input.type = input.type === "password" ? "text" : "password";
         btnElement.textContent = input.type === "password" ? "👁️" : "👁️‍🗨️";
     }
+
+    function generateProvisionalPassword(targetInputId) {
+        const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let pass = '';
+        for (let i = 0; i < 8; i++) {
+            pass += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        pass += '@!';
+        const input = document.getElementById(targetInputId);
+        input.value = pass;
+        input.type = 'text'; // Mostra a senha gerada para facilitar ao admin
+    }
+
+    function syncEmailPrefix(val) {
+        const emailInput = document.getElementById('single_email_prefix');
+        if (emailInput && !emailInput.dataset.manuallyEdited) {
+            emailInput.value = val.trim().toLowerCase().replace(/\s+/g, '.');
+        }
+    }
+
+    document.getElementById('single_email_prefix')?.addEventListener('input', function() {
+        this.dataset.manuallyEdited = "true";
+    });
 </script>
 {% endblock %}
