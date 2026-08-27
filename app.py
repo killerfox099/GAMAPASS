@@ -78,34 +78,47 @@ def get_client_ip():
 
 import time
 import ssl
+import threading
 
-# ================= FUNÇÕES DE E-MAIL (SKYMAIL SSL/TLS COM RETRY) =================
-def disparar_email_smtp(destinatario, msg):
-    remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br").strip()
-    senha_email = os.environ.get('EMAIL_SENHA', "EMPTY_PASS").strip()
-    
-    if not senha_email or senha_email == "EMPTY_PASS" or remetente == "email_padrao@empresa.com.br":
-        print("[SMTP AVISO] EMAIL_REMETENTE ou EMAIL_SENHA não configurados.")
-        return False, "Credenciais de e-mail não configuradas no servidor."
-        
+# ================= FUNÇÕES DE E-MAIL (SKYMAIL SSL/TLS - BACKGROUND) =================
+def _enviar_em_background(destinatario, msg, remetente, senha_email):
+    """Executa o envio SMTP em thread separada para não bloquear o servidor."""
     contexto_ssl = ssl.create_default_context()
-    ultimo_erro = None
-    
-    # Tenta até 3 vezes com reconexão caso o Skymail esteja ocupado ou haja oscilação
+    # Desativa verificação de certificado — compatível com Skymail e servidores corporativos
+    contexto_ssl.check_hostname = False
+    contexto_ssl.verify_mode = ssl.CERT_NONE
+
     for tentativa in range(1, 4):
         try:
-            with smtplib.SMTP_SSL('smtp.skymail.net.br', 465, context=contexto_ssl, timeout=15) as server:
+            with smtplib.SMTP_SSL('smtp.skymail.net.br', 465, context=contexto_ssl, timeout=20) as server:
                 server.login(remetente, senha_email)
                 server.send_message(msg)
             print(f"[SMTP SUCESSO] E-mail enviado para {destinatario} na tentativa {tentativa}!")
-            return True, "Enviado com sucesso"
+            return
         except Exception as e:
-            ultimo_erro = str(e)
-            print(f"[SMTP TENTATIVA {tentativa}/3 FALHOU] Erro: {e}")
+            print(f"[SMTP TENTATIVA {tentativa}/3 FALHOU para {destinatario}] Erro: {e}")
             if tentativa < 3:
-                time.sleep(1.5)
-                
-    return False, ultimo_erro
+                time.sleep(2)
+
+    print(f"[SMTP FALHOU DEFINITIVAMENTE] Não foi possível enviar para {destinatario}.")
+
+def disparar_email_smtp(destinatario, msg):
+    """Dispara e-mail em background e retorna True imediatamente."""
+    remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br").strip()
+    senha_email = os.environ.get('EMAIL_SENHA', "EMPTY_PASS").strip()
+
+    if not senha_email or senha_email == "EMPTY_PASS" or remetente == "email_padrao@empresa.com.br":
+        print("[SMTP AVISO] EMAIL_REMETENTE ou EMAIL_SENHA não configurados.")
+        return False, "Credenciais de e-mail não configuradas no servidor."
+
+    t = threading.Thread(
+        target=_enviar_em_background,
+        args=(destinatario, msg, remetente, senha_email),
+        daemon=True
+    )
+    t.start()
+    # Retorna True imediatamente — o envio acontece em paralelo
+    return True, "E-mail sendo enviado em segundo plano"
 
 def enviar_email_recuperacao(destinatario, nova_senha):
     remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br").strip()
@@ -134,7 +147,7 @@ def enviar_email_convite(destinatario, username, senha_provisoria, link_acesso):
         f"Equipe de Tecnologia da Informação\n"
         f"Gama Caminhões"
     )
-    
+
     msg = MIMEText(corpo, 'plain', 'utf-8')
     msg['Subject'] = 'Convite de Acesso - GAMAPASS (Gama Caminhões)'
     msg['From'] = f"GAMAPASS - Gama Caminhões <{remetente}>"
@@ -142,6 +155,7 @@ def enviar_email_convite(destinatario, username, senha_provisoria, link_acesso):
     msg['Reply-To'] = remetente
 
     return disparar_email_smtp(destinatario, msg)
+
 
 
 
