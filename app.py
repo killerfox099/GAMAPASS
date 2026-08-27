@@ -81,13 +81,17 @@ def enviar_email_recuperacao(destinatario, nova_senha):
     remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br")
     senha_email = os.environ.get('EMAIL_SENHA', "EMPTY_PASS")
     
+    if not senha_email or senha_email == "EMPTY_PASS" or remetente == "email_padrao@empresa.com.br":
+        print("[SMTP AVISO] EMAIL_REMETENTE ou EMAIL_SENHA não configurados no Render.")
+        return False
+
     msg = MIMEText(f"Olá!\n\nSua senha do GAMAPASS foi redefinida.\nSua nova senha temporária é: {nova_senha}\n\nAo fazer login, o sistema exigirá o cadastro de uma nova senha segura.", 'plain', 'utf-8')
     msg['Subject'] = 'Recuperação de Acesso - GAMAPASS'
     msg['From'] = remetente
     msg['To'] = destinatario
 
     try:
-        with smtplib.SMTP_SSL('smtp.skymail.net.br', 465) as server:
+        with smtplib.SMTP_SSL('smtp.skymail.net.br', 465, timeout=8) as server:
             server.login(remetente, senha_email)
             server.send_message(msg)
         return True
@@ -99,6 +103,10 @@ def enviar_email_convite(destinatario, username, senha_provisoria, link_acesso):
     remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br")
     senha_email = os.environ.get('EMAIL_SENHA', "EMPTY_PASS")
     
+    if not senha_email or senha_email == "EMPTY_PASS" or remetente == "email_padrao@empresa.com.br":
+        print("[SMTP AVISO] EMAIL_REMETENTE ou EMAIL_SENHA não configurados no Render.")
+        return False
+
     corpo = (
         f"Olá!\n\n"
         f"Você foi cadastrado na plataforma GAMAPASS — o cofre seguro de senhas e credenciais corporativas da Gama Caminhões.\n\n"
@@ -118,13 +126,14 @@ def enviar_email_convite(destinatario, username, senha_provisoria, link_acesso):
     msg['To'] = destinatario
 
     try:
-        with smtplib.SMTP_SSL('smtp.skymail.net.br', 465) as server:
+        with smtplib.SMTP_SSL('smtp.skymail.net.br', 465, timeout=8) as server:
             server.login(remetente, senha_email)
             server.send_message(msg)
         return True
     except Exception as e:
         print(f"Erro no envio SMTP de convite: {e}")
         return False
+
 
 
 # ================= ROTAS DE AUTENTICAÇÃO =================
@@ -538,20 +547,26 @@ def admin_panel():
                 is_admin=is_admin,
                 is_first_login=True
             )
-            db.session.add(novo_usuario)
-            db.session.commit()
+            try:
+                db.session.add(novo_usuario)
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Erro ao salvar novo usuário no banco: {e}", 'error')
+                return redirect(url_for('admin_panel'))
             
             if send_email and full_email:
-                link_acesso = url_for('login', _external=True)
+                link_acesso = request.host_url.rstrip('/') + url_for('login')
                 enviado = enviar_email_convite(full_email, username, password, link_acesso)
                 if enviado:
                     flash(f"Funcionário '{username}' cadastrado com sucesso e convite enviado para {full_email}!", 'success')
                 else:
-                    flash(f"Funcionário '{username}' cadastrado! Porém houve falha ao enviar o e-mail (verifique as credenciais do Skymail). Senha provisória: {password}", 'warning')
+                    flash(f"Funcionário '{username}' cadastrado! Porém houve falha ao enviar o e-mail (verifique as variáveis EMAIL_REMETENTE e EMAIL_SENHA no Render). Senha provisória: {password}", 'warning')
             else:
                 flash(f"Funcionário '{username}' cadastrado com sucesso!", 'success')
                 
             return redirect(url_for('admin_panel'))
+
             
         # CADASTRO EM MASSA
         elif action == 'bulk_create':
