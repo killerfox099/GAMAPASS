@@ -76,34 +76,11 @@ def get_client_ip():
     return ip
 
 
-import time
 import ssl
-import threading
 
-# ================= FUNÇÕES DE E-MAIL (SKYMAIL SSL/TLS - BACKGROUND) =================
-def _enviar_em_background(destinatario, msg, remetente, senha_email):
-    """Executa o envio SMTP em thread separada para não bloquear o servidor."""
-    contexto_ssl = ssl.create_default_context()
-    # Desativa verificação de certificado — compatível com Skymail e servidores corporativos
-    contexto_ssl.check_hostname = False
-    contexto_ssl.verify_mode = ssl.CERT_NONE
-
-    for tentativa in range(1, 4):
-        try:
-            with smtplib.SMTP_SSL('smtp.skymail.net.br', 465, context=contexto_ssl, timeout=20) as server:
-                server.login(remetente, senha_email)
-                server.send_message(msg)
-            print(f"[SMTP SUCESSO] E-mail enviado para {destinatario} na tentativa {tentativa}!")
-            return
-        except Exception as e:
-            print(f"[SMTP TENTATIVA {tentativa}/3 FALHOU para {destinatario}] Erro: {e}")
-            if tentativa < 3:
-                time.sleep(2)
-
-    print(f"[SMTP FALHOU DEFINITIVAMENTE] Não foi possível enviar para {destinatario}.")
-
+# ================= FUNÇÕES DE E-MAIL (SKYMAIL SSL/TLS SÍNCRONO) =================
 def disparar_email_smtp(destinatario, msg):
-    """Dispara e-mail em background e retorna True imediatamente."""
+    """Envia e-mail de forma síncrona e retorna (True/False, detalhe)."""
     remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br").strip()
     senha_email = os.environ.get('EMAIL_SENHA', "EMPTY_PASS").strip()
 
@@ -111,19 +88,30 @@ def disparar_email_smtp(destinatario, msg):
         print("[SMTP AVISO] EMAIL_REMETENTE ou EMAIL_SENHA não configurados.")
         return False, "Credenciais de e-mail não configuradas no servidor."
 
-    t = threading.Thread(
-        target=_enviar_em_background,
-        args=(destinatario, msg, remetente, senha_email),
-        daemon=True
-    )
-    t.start()
-    # Retorna True imediatamente — o envio acontece em paralelo
-    return True, "E-mail sendo enviado em segundo plano"
+    # Contexto SSL sem verificação de certificado — compatível com Skymail/servidores corporativos
+    contexto_ssl = ssl.create_default_context()
+    contexto_ssl.check_hostname = False
+    contexto_ssl.verify_mode = ssl.CERT_NONE
+
+    try:
+        with smtplib.SMTP_SSL('smtp.skymail.net.br', 465, context=contexto_ssl, timeout=25) as server:
+            server.login(remetente, senha_email)
+            server.send_message(msg)
+        print(f"[SMTP SUCESSO] E-mail enviado para {destinatario}!")
+        return True, "Enviado com sucesso"
+    except Exception as e:
+        print(f"[SMTP ERRO] Falha ao enviar para {destinatario}: {e}")
+        return False, str(e)
 
 def enviar_email_recuperacao(destinatario, nova_senha):
     remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br").strip()
 
-    msg = MIMEText(f"Olá!\n\nSua senha do GAMAPASS foi redefinida.\nSua nova senha temporária é: {nova_senha}\n\nAo fazer login, o sistema exigirá o cadastro de uma nova senha segura.", 'plain', 'utf-8')
+    msg = MIMEText(
+        f"Olá!\n\nSua senha do GAMAPASS foi redefinida.\n"
+        f"Sua nova senha temporária é: {nova_senha}\n\n"
+        f"Ao fazer login, o sistema exigirá o cadastro de uma nova senha segura.",
+        'plain', 'utf-8'
+    )
     msg['Subject'] = 'Recuperação de Acesso - GAMAPASS'
     msg['From'] = f"GAMAPASS - Gama Caminhões <{remetente}>"
     msg['To'] = destinatario
@@ -142,7 +130,8 @@ def enviar_email_convite(destinatario, username, senha_provisoria, link_acesso):
         f"🔗 Link de Acesso: {link_acesso}\n"
         f"👤 Usuário: {username}\n"
         f"🔑 Senha Provisória: {senha_provisoria}\n\n"
-        f"⚠️ Importante: Ao fazer login pela primeira vez, o sistema solicitará obrigatoriamente que você cadastre sua senha pessoal definitiva e complete seus dados.\n\n"
+        f"⚠️ Importante: Ao fazer login pela primeira vez, o sistema solicitará obrigatoriamente "
+        f"que você cadastre sua senha pessoal definitiva e complete seus dados.\n\n"
         f"Atenciosamente,\n"
         f"Equipe de Tecnologia da Informação\n"
         f"Gama Caminhões"
@@ -155,6 +144,7 @@ def enviar_email_convite(destinatario, username, senha_provisoria, link_acesso):
     msg['Reply-To'] = remetente
 
     return disparar_email_smtp(destinatario, msg)
+
 
 
 
@@ -661,32 +651,32 @@ def reenviar_convite(user_id):
         flash('Acesso negado.', 'error')
         return redirect(url_for('dashboard'))
         
-    usuario = User.query.get_or_404(user_id)
-    if not usuario.email:
-        flash(f"O usuário '{usuario.username}' não possui e-mail cadastrado.", 'error')
-        return redirect(url_for('admin_panel'))
-        
-    provisional_pass = request.form.get('provisional_password', '').strip()
-    if not provisional_pass:
-        provisional_pass = ''.join(random.choices(string.ascii_letters + string.digits, k=8)) + '@!'
-        
-    usuario.password_hash = generate_password_hash(provisional_pass, method='scrypt')
-    usuario.is_first_login = True
     try:
+        usuario = User.query.get_or_404(user_id)
+        if not usuario.email:
+            flash(f"O usuário '{usuario.username}' não possui e-mail cadastrado.", 'error')
+            return redirect(url_for('admin_panel'))
+            
+        provisional_pass = request.form.get('provisional_password', '').strip()
+        if not provisional_pass:
+            provisional_pass = ''.join(random.choices(string.ascii_letters + string.digits, k=8)) + '@!'
+            
+        usuario.password_hash = generate_password_hash(provisional_pass, method='scrypt')
+        usuario.is_first_login = True
         db.session.commit()
+        
+        link_acesso = request.host_url.rstrip('/') + url_for('login')
+        sucesso, detalhe_erro = enviar_email_convite(usuario.email, usuario.username, provisional_pass, link_acesso)
+        if sucesso:
+            flash(f"Convite reenviado com sucesso para {usuario.email}! Senha provisória: {provisional_pass}", 'success')
+        else:
+            flash(f"Falha ao enviar e-mail para {usuario.email} ({detalhe_erro}). Senha provisória gerada: {provisional_pass}", 'warning')
     except Exception as e:
         db.session.rollback()
-        flash(f'Erro ao atualizar senha no banco: {e}', 'error')
-        return redirect(url_for('admin_panel'))
-    
-    link_acesso = request.host_url.rstrip('/') + url_for('login')
-    sucesso, detalhe_erro = enviar_email_convite(usuario.email, usuario.username, provisional_pass, link_acesso)
-    if sucesso:
-        flash(f"Convite reenviado com sucesso para {usuario.email}! Senha provisória: {provisional_pass}", 'success')
-    else:
-        flash(f"Falha ao enviar e-mail para {usuario.email} ({detalhe_erro}). A nova senha provisória gerada é: {provisional_pass}", 'warning')
+        flash(f'Erro inesperado ao reenviar convite: {str(e)}', 'error')
         
     return redirect(url_for('admin_panel'))
+
 
 
 
