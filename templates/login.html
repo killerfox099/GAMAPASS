@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}GAMAPASS - Login{% endblock %}
+
+<!-- Aplica a imagem de fundo na página inteira -->
+{% block body_class %}login-page-bg{% endblock %}
+
+{% block content %}
+<!-- A classe login-container aplica o efeito esmaecido -->
+<div class="container login-container">
+    <h2 class="vw-font" style="font-size: 1.8em; line-height: 1.2;">Seja bem-vindo(a) ao<br><span style="font-weight: 700;">GAMAPASS</span></h2>
+    
+    <form method="POST" action="{{ url_for('login') }}">
+        <div class="form-group">
+            <label>Usuário</label>
+            <input type="text" name="username" style="background-color: rgba(255, 255, 255, 0.85) !important;" placeholder="Digite seu usuário" required>
+        </div>
+        <div class="form-group">
+            <label>Senha</label>
+            <div class="input-with-icon">
+                <input type="password" id="login_pass" name="password" style="background-color: rgba(255, 255, 255, 0.50) !important;"placeholder="Digite sua Senha" required>
+                <button type="button" class="toggle-icon" onclick="togglePassword('login_pass', this)">👁️</button>
+            </div>
+            <!-- NOVO: Link de Esqueceu a Senha -->
+            <div style="text-align: right; margin-top: 5px;">
+                <a href="{{ url_for('forgot_password') }}" class="vw-font" style="font-size: 0.85em; color: var(--navy-blue); text-decoration: none; font-weight: 600;">Esqueceu a senha?</a>
+            </div>
+        </div>
+        <button type="submit" class="vw-font">Entrar</button>
+    </form>
+</div>
+
+<script>
+    function togglePassword(inputId, btnElement) {
+        var input = document.getElementById(inputId);
+        input.type = input.type === "password" ? "text" : "password";
+        btnElement.textContent = input.type === "password" ? "👁️" : "👁️‍🗨️";
+    }
+</script>
+{% endblock %}

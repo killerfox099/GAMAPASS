@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}GAMAPASS - Painel Admin{% endblock %}
+{% block main_style %}align-items: flex-start; padding-top: 80px;{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 900px; width: 100%;"> 
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid darkred; padding-bottom: 10px; margin-bottom: 30px;">
+        <h2 class="vw-font" style="color: darkred; margin: 0;">Administração GAMA</h2>
+        <a href="{{ url_for('dashboard') }}" style="color: var(--navy-blue); font-weight: bold; text-decoration: none;">Voltar ao Cofre</a>
+    </div>
+
+    <!-- CADASTRAR USUÁRIOS EM MASSA -->
+    <div style="background-color: #f0f4f8; padding: 20px; border-radius: 8px; margin-bottom: 30px; border-left: 5px solid var(--navy-blue);">
+        <h4 class="vw-font" style="margin-top: 0; color: var(--navy-blue);">Cadastrar Novo(s) Usuário(s)</h4>
+        <p style="font-size: 0.9em; margin-bottom: 15px;">Insira um ou vários logins separados por vírgula (ex: <i>joao.silva, maria.rh, pedro.vendas</i>).</p>
+        
+        <form method="POST" action="{{ url_for('admin_panel') }}" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
+            <input type="hidden" name="action" value="bulk_create">
+            
+            <div class="form-group" style="flex: 2 1 250px; margin-bottom: 0;">
+                <label>Logins (Separados por vírgula)</label>
+                <input type="text" name="bulk_usernames" placeholder="Ex: marcos.ti, ana.qualidade" required>
+            </div>
+            
+            <div class="form-group" style="flex: 1 1 200px; margin-bottom: 0;">
+                <label>Senha Provisória Única</label>
+                <div class="input-with-icon">
+                    <input type="password" id="bulk_pass" name="default_password" required>
+                    <button type="button" class="toggle-icon" onclick="togglePassword('bulk_pass', this)">👁️</button>
+                </div>
+            </div>
+            
+            <div class="form-group" style="flex: 0 1 auto; margin-bottom: 0; display: flex; align-items: center; gap: 5px; height: 45px;">
+                <input type="checkbox" name="is_admin" id="is_admin" style="width: 20px; height: 20px;">
+                <label for="is_admin" style="margin-bottom: 0; cursor: pointer; white-space: nowrap;">Serão Admins?</label>
+            </div>
+            
+            <button type="submit" style="flex: 0 1 auto; padding: 12px 25px; height: 45px; white-space: nowrap;">Cadastrar</button>
+        </form>
+    </div>
+
+    <h3 class="vw-font" style="color: var(--navy-blue);">Equipe Cadastrada</h3>
+    
+    {% for user in users %}
+        <div class="admin-card" style="flex-direction: column; align-items: stretch; gap: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <strong style="font-size: 1.2em; color: var(--navy-blue);">{{ user.display_name or 'Pendente de Configuração' }}</strong> 
+                    (<code>{{ user.username }}</code>)<br>
+                    <span style="background-color: {% if user.is_admin %}darkred{% else %}var(--navy-blue){% endif %}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold; display: inline-block; margin-top: 5px;">
+                        {% if user.is_admin %}Administrador{% else %}Funcionário{% endif %}
+                    </span>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" onclick="toggleEditForm('{{ user.id }}')" style="width: auto; padding: 8px 15px; font-size: 0.9em; background-color: #555;">✏️ Editar</button>
+                    <!-- Formulário para Apagar Usuário -->
+                    <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" onsubmit="return confirm('ATENÇÃO: Apagar este usuário também apagará todas as senhas guardadas por ele. Deseja prosseguir?');">
+                        <button type="submit" class="btn-danger" style="width: auto; padding: 8px 15px; font-size: 0.9em;" {% if user.id == current_user.id %}disabled title="Você não pode apagar a si mesmo"{% endif %}>🗑️ Apagar</button>
+                    </form>
+                </div>
+            </div>
+            
+            <div id="view-mode-{{ user.id }}" style="background-color: #f9f9f9; padding: 12px; border-radius: 4px; border: 1px solid #e0e0e0; font-size: 0.9em; display: flex; flex-wrap: wrap; gap: 20px;">
+                <div><span style="color: #666;">Unidade:</span><br><strong>{{ user.unit or 'Não preenchido' }}</strong></div>
+                <div><span style="color: #666;">Departamento:</span><br><strong>{{ user.department or 'Não preenchido' }}</strong></div>
+                <div><span style="color: #666;">Setor:</span><br><strong>{{ user.sector or 'Não preenchido' }}</strong></div>
+                <div><span style="color: #666;">IP da Máquina:</span><br><code style="color: darkred; font-size: 1.1em;">{{ user.machine_ip or 'Não preenchido' }}</code></div>
+            </div>
+
+            <!-- MODO EDIÇÃO (Omitido para não poluir, ele continua igual com o id edit-mode-x) -->
+            <div id="edit-mode-{{ user.id }}" style="display: none; background-color: #e6ecf2; padding: 15px; border: 1px solid var(--navy-blue); border-radius: 4px; margin-top: 5px;">
+                
+                <form method="POST" action="{{ url_for('editar_usuario', user_id=user.id) }}">
+                    <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                        <div class="form-group" style="flex: 1 1 45%; margin-bottom: 10px;"><label>Login</label><input type="text" name="username" value="{{ user.username }}" required></div>
+                        <div class="form-group" style="flex: 1 1 45%; margin-bottom: 10px;"><label>Nome</label><input type="text" name="display_name" value="{{ user.display_name or '' }}"></div>
+                        
+                        <div class="form-group" style="flex: 1 1 45%; margin-bottom: 10px;"><label>Unidade</label>
+                            <select name="unit">
+                                <option value="" {% if not user.unit %}selected{% endif %}>Selecione...</option>
+                                <option value="Campina Grande" {% if user.unit == 'Campina Grande' %}selected{% endif %}>Campina Grande</option>
+                                <option value="João Pessoa" {% if user.unit == 'João Pessoa' %}selected{% endif %}>João Pessoa</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" style="flex: 1 1 45%; margin-bottom: 10px;"><label>Departamento</label>
+                            <select name="department">
+                                <option value="" {% if not user.department %}selected{% endif %}>Selecione...</option>
+                                <option value="Qualidade" {% if user.department == 'Qualidade' %}selected{% endif %}>Qualidade</option>
+                                <option value="Administrativo" {% if user.department == 'Administrativo' %}selected{% endif %}>Administrativo</option>
+                                <option value="Vendas" {% if user.department == 'Vendas' %}selected{% endif %}>Vendas</option>
+                                <option value="Assistência Técnica" {% if user.department == 'Assistência Técnica' %}selected{% endif %}>Assistência Técnica</option>
+                                <option value="Peças/Pneus" {% if user.department == 'Peças/Pneus' %}selected{% endif %}>Peças/Pneus</option>
+                                <option value="Recursos Humanos" {% if user.department == 'Recursos Humanos' %}selected{% endif %}>Recursos Humanos</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" style="flex: 1 1 45%; margin-bottom: 10px;"><label>Setor</label><input type="text" name="sector" value="{{ user.sector or '' }}"></div>
+                        <div class="form-group" style="flex: 1 1 45%; margin-bottom: 10px;"><label>IP da Máquina</label><input type="text" name="machine_ip" value="{{ user.machine_ip or '' }}"></div>
+                        
+                        <div class="form-group" style="flex: 1 1 100%; margin-bottom: 0;">
+                            <label style="color: darkred;">Redefinir Senha Mestre</label>
+                            <div class="input-with-icon">
+                                <input type="password" id="admin_pass_{{ user.id }}" name="new_password" placeholder="Nova senha se necessário...">
+                                <button type="button" class="toggle-icon" onclick="togglePassword('admin_pass_{{ user.id }}', this)">👁️</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 15px;">
+                        <button type="submit" style="background-color: darkred; flex: 1;">Salvar Alterações</button>
+                        <button type="button" onclick="toggleEditForm('{{ user.id }}')" class="btn-secondary" style="flex: 1;">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+
+<script>
+    function toggleEditForm(userId) {
+        const viewMode = document.getElementById('view-mode-' + userId);
+        const editMode = document.getElementById('edit-mode-' + userId);
+        if (editMode.style.display === 'none') { editMode.style.display = 'block'; viewMode.style.display = 'none'; } 
+        else { editMode.style.display = 'none'; viewMode.style.display = 'flex'; }
+    }
+    function togglePassword(inputId, btnElement) {
+        var input = document.getElementById(inputId);
+        input.type = input.type === "password" ? "text" : "password";
+        btnElement.textContent = input.type === "password" ? "👁️" : "👁️‍🗨️";
+    }
+</script>
+{% endblock %}

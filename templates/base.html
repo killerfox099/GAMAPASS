@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}GAMAPASS{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <style>
+        #caps-lock-warning { display: none; position: fixed; background-color: #ffaa00; color: #000; padding: 6px 12px; border-radius: 4px; font-size: 0.85em; font-weight: bold; box-shadow: 0 4px 8px rgba(0,0,0,0.2); pointer-events: none; z-index: 9999; }
+        #caps-lock-warning::before { content: '⚠️ Caps Lock Ligado!'; }
+    </style>
+</head>
+<!-- FORÇAMOS O BODY A SE COMPORTAR COMO UMA COLUNA VERTICAL CORRETA -->
+<body class="{% block body_class %}{% endblock %}" style="display: flex; flex-direction: column; min-height: 100vh; width: 100%; align-items: center; justify-content: flex-start; margin: 0; padding: 0;">
+
+    <div id="caps-lock-warning"></div>
+
+    <!-- Imagem flutuante apenas no Dashboard e Admin -->
+    {% if request.endpoint in ['dashboard', 'admin_panel'] %}
+        <img src="{{ url_for('static', filename='gama_dash_up.jfif') }}" alt="GAMA" style="position: fixed; top: 20px; right: 20px; width: 120px; z-index: 1000; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
+    {% endif %}
+
+    <div class="main-content" style="{% block main_style %}{% endblock %} width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; box-sizing: border-box; padding-bottom: 60px; padding-top: 40px;">
+        <div style="position: absolute; top: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 1000;">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-msg flash-{{ category }}" style="pointer-events: auto; width: 90%; max-width: 500px;">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Rodapé global com largura total e centralização forçada -->
+    <footer class="site-footer" style="width: 100%; display: flex; justify-content: center; align-items: center; padding: 20px 0 40px 0; margin-top: auto; background-color: transparent; border: none; box-sizing: border-box;">
+        <img src="{{ url_for('static', filename='RODAPE_FUNDO.jpeg') }}" alt="Grupo GAMA" style="height: 55px; width: auto; max-width: 90%; object-fit: contain; margin: 0 auto;">
+    </footer>
+
+    <script>
+        const capsWarning = document.getElementById('caps-lock-warning');
+        let capsLockState = false; 
+        function updateCapsState(event) {
+            if (event.getModifierState) { capsLockState = event.getModifierState('CapsLock'); }
+            showWarningIfInput();
+        }
+        function showWarningIfInput() {
+            const activeEl = document.activeElement;
+            const isInput = activeEl && activeEl.tagName === 'INPUT' && (activeEl.type === 'text' || activeEl.type === 'password');
+            if (capsLockState && isInput) {
+                capsWarning.style.display = 'block';
+                const rect = activeEl.getBoundingClientRect();
+                capsWarning.style.top = (rect.top - 35) + 'px';
+                capsWarning.style.left = rect.left + 'px';
+            } else { capsWarning.style.display = 'none'; }
+        }
+        document.addEventListener('keydown', updateCapsState);
+        document.addEventListener('keyup', updateCapsState);
+        document.addEventListener('mousedown', updateCapsState);
+        document.addEventListener('focusin', showWarningIfInput);
+        document.addEventListener('focusout', function() { capsWarning.style.display = 'none'; });
+    </script>
+</body>
+</html>

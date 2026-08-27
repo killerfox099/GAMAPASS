@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+{% block title %}GAMAPASS - Cofre{% endblock %}
+{% block main_style %}align-items: flex-start; padding-top: 80px;{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 800px; width: 100%;">
+    <!-- Cabeçalho -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; border-bottom: 2px solid var(--navy-blue); padding-bottom: 10px; margin-bottom: 30px; gap: 15px;">
+        <h2 class="vw-font" style="margin:0; font-size: 1.5em;">Olá, {{ current_user.display_name or current_user.username }}</h2>
+        <div style="display: flex; gap: 15px; align-items: center;">
+            {% if current_user.is_admin %}
+                <a href="{{ url_for('admin_panel') }}" style="color: darkred; font-weight: bold; text-decoration: none;">Painel Admin</a>
+            {% endif %}
+            <a href="{{ url_for('logout') }}" style="color: var(--navy-blue); font-weight: bold; text-decoration: none;">Sair</a>
+        </div>
+    </div>
+
+    <!-- Formulário de Adicionar -->
+    <form method="POST" action="{{ url_for('dashboard') }}" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 30px; align-items: center;">
+        <input type="text" name="service" placeholder="Serviço (ex: Syonet)" required style="flex: 1 1 120px; padding: 12px;">
+        <input type="text" name="service_url" placeholder="Link/URL (Opcional)" style="flex: 1 1 150px; padding: 12px;">
+        <input type="text" name="service_user" placeholder="Login no serviço" required style="flex: 1 1 150px; padding: 12px;">
+        <div class="input-with-icon" style="flex: 1 1 180px;">
+            <input type="password" id="save_pass" name="service_pass" placeholder="Senha" required style="width: 100%;">
+            <button type="button" class="toggle-icon" onclick="togglePassword('save_pass', this)" style="right: 5px;">👁️</button>
+        </div>
+        <button type="submit" style="flex: 0 1 auto; padding: 12px 25px; white-space: nowrap;">Salvar</button>
+    </form>
+
+    <!-- BARRA DE PESQUISA -->
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="barraPesquisa" onkeyup="filtrarSenhas()" placeholder="🔍 Pesquisar por Serviço, URL ou Login..." style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 16px;">
+    </div>
+
+    <!-- Título Senhas -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 15px; gap: 10px;">
+        <h3 class="vw-font" style="margin: 0; color: var(--navy-blue);">Senhas Salvas</h3>
+        <button type="button" class="btn-secondary" id="toggleAllBtn" onclick="toggleAllSecrets()" style="width: auto; padding: 8px 15px;">Revelar Senhas</button>
+    </div>
+
+    <!-- Lista de Senhas -->
+    {% if entries %}
+        {% for entry in entries %}
+            <div class="password-card linha-senha" style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 15px;">
+                
+                <!-- MODO VISUALIZAÇÃO -->
+                <div id="view-pass-{{ entry.id }}" style="display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap;">
+                    <div style="word-break: break-all; flex: 1; min-width: 200px;">
+                        <strong>Serviço:</strong> 
+                        {% if entry.service_url %}
+                            <a href="{{ entry.service_url if 'http' in entry.service_url else 'https://' + entry.service_url }}" target="_blank" style="color: var(--navy-blue); text-decoration: underline;">
+                                <span class="busca-servico">{{ entry.service_name }}</span> 
+                            </a>
+                            <span class="busca-url" style="display: none;">{{ entry.service_url }}</span>
+                        {% else %}
+                            <span class="busca-servico">{{ entry.service_name }}</span>
+                            <span class="busca-url" style="display: none;"></span>
+                        {% endif %}
+                        <br>
+                        <strong>Usuário:</strong> <span class="busca-login">{{ entry.service_username }}</span> <br>
+                        <strong>Senha:</strong> <code class="secret-text" data-secret="{{ entry.password }}">********</code>
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px; flex-shrink: 0;">
+                        <!-- NOVO BOTÃO DE EDITAR -->
+                        <button type="button" onclick="toggleEditPass('{{ entry.id }}')" style="width: auto; padding: 8px 15px; font-size: 0.9em; background-color: #555; color: white; border: none; border-radius: 4px; cursor: pointer;">✏️ Editar</button>
+                        
+                        <form method="POST" action="{{ url_for('delete_password', pass_id=entry.id) }}" onsubmit="return confirm('Tem certeza que deseja apagar essa credencial permanentemente?');" style="margin: 0;">
+                            <button type="submit" class="btn-danger" style="width: auto; padding: 8px 15px; font-size: 0.9em;">🗑️ Apagar</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- MODO EDIÇÃO (Fica escondido até clicar em Editar) -->
+                <div id="edit-pass-{{ entry.id }}" style="display: none; background-color: #f0f4f8; padding: 15px; border-radius: 6px; border: 1px solid var(--navy-blue);">
+                    <form method="POST" action="{{ url_for('editar_senha', pass_id=entry.id) }}" style="display: flex; flex-direction: column; gap: 10px; margin: 0;">
+                        
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <div style="flex: 1 1 200px;">
+                                <label style="font-size: 0.9em; font-weight: bold; color: var(--navy-blue);">Serviço:</label>
+                                <input type="text" name="service" value="{{ entry.service_name }}" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                            </div>
+                            <div style="flex: 1 1 200px;">
+                                <label style="font-size: 0.9em; font-weight: bold; color: var(--navy-blue);">URL/Link:</label>
+                                <input type="text" name="service_url" value="{{ entry.service_url or '' }}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <div style="flex: 1 1 200px;">
+                                <label style="font-size: 0.9em; font-weight: bold; color: var(--navy-blue);">Usuário/Login:</label>
+                                <input type="text" name="service_user" value="{{ entry.service_username }}" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                            </div>
+                            <div style="flex: 1 1 200px;">
+                                <label style="font-size: 0.9em; font-weight: bold; color: var(--navy-blue);">Nova Senha (vazio para manter):</label>
+                                <div class="input-with-icon" style="width: 100%;">
+                                    <input type="password" id="edit_pass_{{ entry.id }}" name="service_pass" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                                    <button type="button" class="toggle-icon" onclick="togglePassword('edit_pass_{{ entry.id }}', this)" style="right: 5px; top: 50%; transform: translateY(-50%);">👁️</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <button type="submit" style="background-color: var(--navy-blue); flex: 1; padding: 10px; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">💾 Salvar Alterações</button>
+                            <button type="button" onclick="toggleEditPass('{{ entry.id }}')" style="background-color: #ccc; color: #333; flex: 1; padding: 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Cancelar</button>
+                        </div>
+                        
+                    </form>
+                </div>
+                
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>Nenhuma senha salva ainda.</p>
+    {% endif %}
+</div>
+
+<script>
+
+    function toggleEditPass(passId) {
+        const viewMode = document.getElementById('view-pass-' + passId);
+        const editMode = document.getElementById('edit-pass-' + passId);
+        
+        if (editMode.style.display === 'none') { 
+            editMode.style.display = 'block'; 
+            viewMode.style.display = 'none'; 
+        } else { 
+            editMode.style.display = 'none'; 
+            viewMode.style.display = 'flex'; 
+        }
+    }
+
+    function togglePassword(inputId, btnElement) {
+        var input = document.getElementById(inputId);
+        input.type = input.type === "password" ? "text" : "password";
+        btnElement.textContent = input.type === "password" ? "👁️" : "👁️‍🗨️";
+    }
+
+    let areSecretsHidden = true;
+    function toggleAllSecrets() {
+        const secretSpans = document.querySelectorAll('.secret-text');
+        const btn = document.getElementById('toggleAllBtn');
+        areSecretsHidden = !areSecretsHidden;
+        secretSpans.forEach(span => {
+            span.textContent = areSecretsHidden ? '********' : span.getAttribute('data-secret');
+        });
+        btn.textContent = areSecretsHidden ? 'Revelar Senhas' : 'Esconder Senhas';
+        btn.style.backgroundColor = areSecretsHidden ? '#ccc' : '#ff4444';
+        btn.style.color = areSecretsHidden ? '#333' : '#fff';
+    }
+</script>
+
+<!-- CSS incorporado para garantir que os botões fiquem idênticos e bonitos -->
+<style>
+    .botoes-csv-container {
+        display: flex;
+        flex-direction: column; /* Coloca um abaixo do outro */
+        gap: 12px; /* Espaçamento exato entre os botões */
+        max-width: 250px; /* Define um tamanho limite para não ficarem gigantes */
+        margin-bottom: 20px;
+    }
+
+    .btn-gamapass {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        background-color: #2c3e50; /* Cor azul escuro moderna (ajuste se quiser) */
+        color: #ffffff;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 6px;
+        font-size: 15px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        width: 100%;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .btn-gamapass:hover {
+        background-color: #1a252f;
+        box-shadow: 0 6px 8px rgba(0,0,0,0.15);
+        transform: translateY(-2px); /* Efeito sutil de levantar ao passar o mouse */
+        color: #ffffff;
+    }
+</style>
+
+<!-- CSS incorporado para garantir que os botões fiquem idênticos -->
+<style>
+    .botoes-csv-container {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-width: 250px;
+        margin-bottom: 20px;
+    }
+
+    .btn-gamapass {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        background-color: #2c3e50;
+        color: #ffffff;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 6px;
+        font-size: 15px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        width: 100%;
+        box-sizing: border-box; /* O segredo para alinhar tags diferentes */
+        font-family: inherit; /* Garante que a fonte ocupe o mesmo espaço */
+    }
+
+    .btn-gamapass:hover {
+        background-color: #1a252f;
+        box-shadow: 0 6px 8px rgba(0,0,0,0.15);
+        transform: translateY(-2px);
+        color: #ffffff;
+    }
+</style>
+
+<!-- O Container dos Botões -->
+<div class="botoes-csv-container">
+    
+    <!-- 1. BOTÃO DE EXPORTAR -->
+    <a href="{{ url_for('exportar_csv') }}" class="btn-gamapass">
+        📥 Exportar Senhas
+    </a>
+
+    <!-- 2. BOTÃO DE IMPORTAR -->
+    <!-- Removi o display: flex daqui e deixei como display: block -->
+    <form id="formImportacao" action="{{ url_for('importar_csv') }}" method="POST" enctype="multipart/form-data" style="margin: 0; width: 100%; display: block;">
+        
+        <button type="button" class="btn-gamapass" onclick="document.getElementById('arquivo_csv').click();">
+            📤 Importar Senhas
+        </button>
+        
+        <input type="file" id="arquivo_csv" name="arquivo_csv" accept=".csv" style="display: none;" onchange="enviarFormularioAutomatico()">
+    </form>
+    
+</div>
+
+<!-- O pequeno script mágico -->
+<script>
+    function enviarFormularioAutomatico() {
+        // Pega o campo de arquivo para checar se o usuário realmente escolheu algo
+        const inputArquivo = document.getElementById('arquivo_csv');
+        
+        if (inputArquivo.files.length > 0) {
+            // Se tem arquivo, submete o formulário imediatamente
+            document.getElementById('formImportacao').submit();
+        }
+    }
+</script>
+
+<!-- NOVO: Script do Filtro de Pesquisa -->
+<script>
+    function filtrarSenhas() {
+        // Pega o que o usuário digitou e converte para minúsculo
+        let termo = document.getElementById('barraPesquisa').value.toLowerCase();
+        
+        // Pega todos os cards de senhas
+        let linhas = document.getElementsByClassName('linha-senha');
+
+        for (let i = 0; i < linhas.length; i++) {
+            let linha = linhas[i];
+            
+            // Pega o conteúdo exato das 3 tags que criamos
+            let servico = linha.querySelector('.busca-servico') ? linha.querySelector('.busca-servico').innerText.toLowerCase() : "";
+            let url = linha.querySelector('.busca-url') ? linha.querySelector('.busca-url').innerText.toLowerCase() : "";
+            let login = linha.querySelector('.busca-login') ? linha.querySelector('.busca-login').innerText.toLowerCase() : "";
+
+            // A Lógica de Prioridade
+            if (servico.includes(termo) || url.includes(termo) || login.includes(termo)) {
+                linha.style.display = "flex"; // Mostra o resultado (usamos flex para manter o formato do seu card)
+            } else {
+                linha.style.display = "none"; // Esconde os que não combinam
+            }
+        }
+    }
+</script>
+
+{% endblock %}

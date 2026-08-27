@@ -1,0 +1,12 @@
+# Ignora o banco de dados SQLite local
+*.db
+banco_local.db
+
+# Ignora pastas de ambiente virtual e cache do Python
+__pycache__/
+venv/
+env/
+.env
+
+# Ignora arquivos de teste CSV
+*.csv

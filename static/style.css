@@ -1,0 +1,204 @@
+:root {
+    --primary-white: #FFFFFF;
+    --background-light: #F4F7F6;
+    --navy-blue: #001f3f;
+    --navy-blue-hover: #003366;
+    --text-dark: #333333;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--background-light);
+    color: var(--text-dark);
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.container {
+    background-color: var(--primary-white);
+    padding: 40px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 500px;
+}
+
+h2 {
+    color: var(--navy-blue);
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: var(--navy-blue);
+}
+
+input[type="text"], input[type="email"], input[type="password"] {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+button {
+    width: 100%;
+    padding: 12px;
+    background-color: var(--navy-blue);
+    color: var(--primary-white);
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: var(--navy-blue-hover);
+}
+
+.password-card {
+    border-left: 4px solid var(--navy-blue);
+    background-color: var(--background-light);
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+}
+
+.flash-msg {
+    padding: 10px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+    text-align: center;
+}
+.flash-error { background-color: #ffcccc; color: #cc0000; }
+.flash-success { background-color: #ccffcc; color: #006600; }
+
+/* Container relativo para posicionar o ícone dentro do input */
+.input-with-icon {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-with-icon input {
+    padding-right: 40px; /* Dá espaço para o ícone */
+    width: 100%;
+}
+
+.toggle-icon {
+    position: absolute;
+    right: 10px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 18px;
+    background: none;
+    border: none;
+    color: var(--navy-blue);
+    width: auto;
+    padding: 0;
+}
+
+.toggle-icon:hover { background: none; color: var(--navy-blue-hover); }
+
+/* Tabelas e botões extras */
+.btn-secondary {
+    background-color: #ccc;
+    color: var(--text-dark);
+}
+.btn-secondary:hover { background-color: #bbb; }
+
+.admin-card {
+    background: #fff; border: 1px solid #ccc; padding: 15px; margin-bottom: 15px;
+    display: flex; justify-content: space-between; align-items: center; border-radius: 5px;
+}
+
+/* Estilos para validação de senha no frontend */
+.password-requirements {
+    list-style-type: none;
+    padding: 0;
+    margin: 10px 0 20px 0;
+    font-size: 0.9em;
+}
+
+.password-requirements li {
+    color: #cc0000; /* Vermelho por padrão */
+    margin-bottom: 5px;
+    transition: color 0.3s ease;
+}
+
+.password-requirements li::before {
+    content: '❌ ';
+}
+
+.password-requirements li.valid {
+    color: #006600; /* Verde quando atendido */
+}
+
+.password-requirements li.valid::before {
+    content: '✅ ';
+}
+
+select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    background-color: white;
+}
+
+/* ================= ALERTA DE CAPS LOCK ================= */
+#caps-lock-warning {
+    display: none; /* Escondido por padrão */
+    position: fixed;
+    background-color: #ffaa00;
+    color: #000;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: bold;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    pointer-events: none; /* Impede que o balão atrapalhe o clique */
+    z-index: 9999;
+    transition: opacity 0.2s;
+}
+#caps-lock-warning::before {
+    content: '⚠️ Caps Lock Ligado!';
+}
+
+.login-page-bg {
+    background-image: url('logo_png.webp');
+    background-size: 510px auto; /* Mantém a proporção sem esticar e sem serrilhar */
+    background-position: center top;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    background-color: var(--background-light); /* Preenche o resto da tela com o cinza claro */
+}
+
+.site-footer {
+    width: 100%;
+    text-align: center;
+    padding: 15px 0;
+    background-color: transparent; /* Fundo invisível */
+    border-top: none; /* Remove a linha azul de cima */
+    margin-top: auto;
+}
+
+.login-container {
+    background-color: rgba(255, 255, 255, 0.50); /* Mais transparente (era 0.85) */
+    backdrop-filter: blur(3px); /* Menos embaçado (era 8px) */
+    -webkit-backdrop-filter: blur(3px); /* Para navegadores baseados no Safari/Edge */
+}

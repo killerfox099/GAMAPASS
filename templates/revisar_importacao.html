@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}GAMAPASS - Revisar Importação{% endblock %}
+{% block main_style %}align-items: flex-start; padding-top: 80px;{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 800px; width: 100%;">
+    <h2 class="vw-font" style="color: var(--navy-blue); margin-bottom: 10px;">Revisar Importação</h2>
+    <p style="margin-bottom: 30px;">Identificamos as credenciais abaixo no seu arquivo. <strong>Defina o nome do serviço para cada uma delas.</strong> Se quiser descartar uma credencial, basta deixar o nome do serviço em branco.</p>
+
+    <!-- O formulário envia matrizes (arrays) para o Python usando o colchete '[]' no nome -->
+    <form method="POST" action="{{ url_for('salvar_importacao') }}">
+        
+        {% for item in senhas %}
+        <div class="password-card" style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; background-color: #f9f9f9; padding: 15px; border: 1px solid #ccc; border-radius: 6px;">
+            
+            <div style="flex: 1 1 200px;">
+                <label style="font-weight: bold; font-size: 0.9em; color: darkred;">Nome do Serviço (Obrigatório):</label>
+                <input type="text" name="servicos[]" value="{{ item.sugestao_servico }}" placeholder="Ex: Syonet, E-mail..." required style="width: 100%; padding: 10px; border: 2px solid darkred; border-radius: 4px; outline: none;">
+            </div>
+            
+            <div style="flex: 1 1 200px;">
+                <label style="font-weight: bold; font-size: 0.9em;">Usuário / Login Identificado:</label>
+                <!-- Este campo é 'readonly' para o usuário não quebrar a lógica de extração, mas é enviado no formulário -->
+                <input type="text" name="usuarios[]" value="{{ item.usuario }}" readonly style="width: 100%; padding: 10px; background-color: #e9ecef; border: 1px solid #ccc; border-radius: 4px; color: #555;">
+            </div>
+
+            <!-- Campos ocultos de segurança para trafegar a senha e a URL até o banco sem exibir na tela -->
+            <input type="hidden" name="senhas[]" value="{{ item.senha }}">
+            <input type="hidden" name="urls[]" value="{{ item.url }}">
+            
+        </div>
+        {% endfor %}
+
+        <div style="display: flex; gap: 15px; margin-top: 30px;">
+            <button type="submit" style="background-color: var(--navy-blue); color: white; border: none; border-radius: 6px; padding: 12px 25px; flex: 1; font-weight: bold; cursor: pointer;">💾 Salvar Todas as Senhas</button>
+            <a href="{{ url_for('dashboard') }}" class="btn-secondary" style="padding: 12px 25px; flex: 1; text-align: center; text-decoration: none; border-radius: 6px;">Cancelar Importação</a>
+        </div>
+        
+    </form>
+</div>
+{% endblock %}

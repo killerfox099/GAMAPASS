@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}GAMAPASS - Configuração Inicial{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 600px;">
+    <h2 class="vw-font" style="margin-bottom: 10px;">Bem-vindo(a) ao GAMAPASS!</h2>
+    <p style="text-align: center; margin-bottom: 30px;">Para garantir a segurança corporativa, conclua a configuração do seu perfil.</p>
+
+    <form method="POST" action="{{ url_for('first_setup') }}">
+        <!-- 1. Dados Pessoais e Organização -->
+        <h4 style="color: var(--navy-blue); margin-bottom: 10px;">1. Dados Pessoais e Organização</h4>
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <div class="form-group" style="flex: 1; min-width: 250px;">
+                <label>Como você gostaria de ser chamado?</label>
+                <input type="text" name="display_name" value="{{ form_data.get('display_name', '') }}" placeholder="Ex: João Silva" required>
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 250px;">
+                <label>E-mail Corporativo</label>
+                <input type="email" name="email" value="{{ form_data.get('email', '') }}" placeholder="Para recuperação de senha" required>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <div class="form-group" style="flex: 1; min-width: 250px;">
+                <label>Unidade</label>
+                <select name="unit" required>
+                    <option value="">Selecione...</option>
+                    <option value="Campina Grande" {% if form_data.get('unit') == 'Campina Grande' %}selected{% endif %}>Campina Grande</option>
+                    <option value="João Pessoa" {% if form_data.get('unit') == 'João Pessoa' %}selected{% endif %}>João Pessoa</option>
+                </select>
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 250px;">
+                <label>Departamento</label>
+                <select name="department" required>
+                    <option value="">Selecione...</option>
+                    <option value="Qualidade" {% if form_data.get('department') == 'Qualidade' %}selected{% endif %}>Qualidade</option>
+                    <option value="Administrativo" {% if form_data.get('department') == 'Administrativo' %}selected{% endif %}>Administrativo</option>
+                    <option value="Vendas" {% if form_data.get('department') == 'Vendas' %}selected{% endif %}>Vendas</option>
+                    <option value="Assistência Técnica" {% if form_data.get('department') == 'Assistência Técnica' %}selected{% endif %}>Assistência Técnica</option>
+                    <option value="Peças/Pneus" {% if form_data.get('department') == 'Peças/Pneus' %}selected{% endif %}>Peças/Pneus</option>
+                    <option value="Recursos Humanos" {% if form_data.get('department') == 'Recursos Humanos' %}selected{% endif %}>Recursos Humanos</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <div class="form-group" style="flex: 1; min-width: 250px;">
+                <label>Setor</label>
+                <input type="text" name="sector" value="{{ form_data.get('sector', '') }}" placeholder="Ex: TI" required>
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 250px;">
+                <label>IP da Máquina</label>
+                <input type="text" name="machine_ip" value="{{ form_data.get('machine_ip', '') }}" placeholder="Ex: 10.5.0.123" required>
+            </div>
+        </div>
+
+        <!-- 2. Definição da Senha Mestre -->
+        <h4 style="color: var(--navy-blue); margin-bottom: 10px; margin-top: 10px;">2. Definição da Senha Mestre</h4>
+        <div class="password-card">
+            <div class="form-group" style="margin-bottom: 10px;">
+                <label>Nova Senha Mestre</label>
+                <div class="input-with-icon">
+                    <input type="password" id="first_pass" name="new_password" placeholder="Crie uma senha forte" required onkeyup="checkPasswordStrength()">
+                    <button type="button" class="toggle-icon" onclick="togglePassword('first_pass', this)">👁️</button>
+                </div>
+            </div>
+            <ul class="password-requirements">
+                <li id="req-length">Mínimo de 8 caracteres</li>
+                <li id="req-upper">Pelo menos uma letra maiúscula</li>
+                <li id="req-lower">Pelo menos uma letra minúscula</li>
+                <li id="req-number">Pelo menos um número</li>
+                <li id="req-special">Pelo menos um caractere especial (!@#$%*|&)</li>
+            </ul>
+        </div>
+
+        <button type="submit" id="btn-submit" style="margin-top: 10px; cursor: not-allowed;" disabled>Finalizar Cadastro</button>
+    </form>
+</div>
+
+<script>
+    function togglePassword(inputId, btnElement) {
+        var input = document.getElementById(inputId);
+        input.type = input.type === "password" ? "text" : "password";
+        btnElement.textContent = input.type === "password" ? "👁️" : "👁️‍🗨️";
+    }
+
+    function checkPasswordStrength() {
+        const pass = document.getElementById('first_pass').value;
+        const btn = document.getElementById('btn-submit');
+        
+        // Mapeamento dos requisitos com seus respectivos IDs no HTML e os testes de Regex
+        const reqs = {
+            'req-length': pass.length >= 8,
+            'req-upper': /[A-Z]/.test(pass),
+            'req-lower': /[a-z]/.test(pass),
+            'req-number': /[0-9]/.test(pass),
+            'req-special': /[!@#$%*|&]/.test(pass)
+        };
+
+        let allValid = true;
+
+        // Itera sobre o objeto, aplicando a classe CSS e verificando se algum falhou
+        for (let id in reqs) {
+            document.getElementById(id).className = reqs[id] ? 'valid' : '';
+            if (!reqs[id]) {
+                allValid = false;
+            }
+        }
+
+        // Habilita ou desabilita o botão com base no resultado de todas as validações
+        btn.disabled = !allValid;
+        btn.style.cursor = allValid ? 'pointer' : 'not-allowed';
+    }
+</script>
+{% endblock %}
