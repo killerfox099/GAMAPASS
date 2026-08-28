@@ -26,8 +26,8 @@
     <!-- FORMULÁRIO RÁPIDO DE ALTERAÇÃO DE IP (OCULTO POR PADRÃO) -->
     <div id="ip-edit-box" style="display: none; background-color: #f0f4f8; border: 1px solid var(--navy-blue); border-radius: 6px; padding: 15px; margin-bottom: 25px;">
         <form method="POST" action="{{ url_for('atualizar_meu_ip') }}" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 0;">
-            <label style="margin: 0; font-size: 0.9em; white-space: nowrap; font-weight: bold; color: var(--navy-blue);">IP da Máquina:</label>
-            <input type="text" name="machine_ip" value="{{ current_user.machine_ip or '' }}" placeholder="Ex: 10.5.0.123 ou deixe vazio para autodetectar" style="flex: 1 1 220px; padding: 8px 12px;">
+            <label style="margin: 0; font-size: 0.9em; white-space: nowrap; font-weight: bold; color: var(--navy-blue);">IP Fixo da Máquina:</label>
+            <input type="text" name="machine_ip" value="{{ current_user.machine_ip or '' }}" placeholder="Ex: 10.5.0.224" required style="flex: 1 1 220px; padding: 8px 12px;">
             <button type="submit" style="width: auto; padding: 8px 16px; font-size: 0.9em; background-color: var(--navy-blue);">💾 Salvar IP</button>
             <button type="button" onclick="toggleIpEdit()" style="width: auto; padding: 8px 16px; font-size: 0.9em; background-color: #6c757d;">Fechar</button>
         </form>

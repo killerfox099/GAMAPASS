@@ -2,6 +2,7 @@ import os
 import csv
 import io
 import re
+import ssl
 import smtplib
 import random
 import string
@@ -65,9 +66,8 @@ def load_user(user_id):
 
 # ================= DETECÇÃO DE IP =================
 def get_client_ip():
-    """Captura o endereço IP real da máquina / conexão do usuário."""
+    """Captura o endereço IP de conexão do usuário."""
     if request.headers.get('X-Forwarded-For'):
-        # No Render/Cloudflare, X-Forwarded-For pode ter múltiplos IPs (cliente, proxy)
         ip = request.headers.get('X-Forwarded-For').split(',')[0].strip()
     elif request.headers.get('X-Real-IP'):
         ip = request.headers.get('X-Real-IP').strip()
@@ -76,11 +76,9 @@ def get_client_ip():
     return ip
 
 
-import ssl
-
-# ================= FUNÇÕES DE E-MAIL (SKYMAIL SSL/TLS SÍNCRONO) =================
+# ================= FUNÇÕES DE E-MAIL (SKYMAIL - PORTA 587 STARTTLS + FALLBACK 465 SSL) =================
 def disparar_email_smtp(destinatario, msg):
-    """Envia e-mail de forma síncrona e retorna (True/False, detalhe)."""
+    """Tenta porta 587 (STARTTLS) e, caso necessário, porta 465 (SSL)."""
     remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br").strip()
     senha_email = os.environ.get('EMAIL_SENHA', "EMPTY_PASS").strip()
 
@@ -88,20 +86,38 @@ def disparar_email_smtp(destinatario, msg):
         print("[SMTP AVISO] EMAIL_REMETENTE ou EMAIL_SENHA não configurados.")
         return False, "Credenciais de e-mail não configuradas no servidor."
 
-    # Contexto SSL sem verificação de certificado — compatível com Skymail/servidores corporativos
     contexto_ssl = ssl.create_default_context()
     contexto_ssl.check_hostname = False
     contexto_ssl.verify_mode = ssl.CERT_NONE
 
+    erros = []
+
+    # --- Tentativa 1: Porta 587 com STARTTLS (Mais compatível com servidores em nuvem) ---
     try:
-        with smtplib.SMTP_SSL('smtp.skymail.net.br', 465, context=contexto_ssl, timeout=25) as server:
+        with smtplib.SMTP('smtp.skymail.net.br', 587, timeout=15) as server:
+            server.ehlo()
+            server.starttls(context=contexto_ssl)
+            server.ehlo()
             server.login(remetente, senha_email)
             server.send_message(msg)
-        print(f"[SMTP SUCESSO] E-mail enviado para {destinatario}!")
-        return True, "Enviado com sucesso"
-    except Exception as e:
-        print(f"[SMTP ERRO] Falha ao enviar para {destinatario}: {e}")
-        return False, str(e)
+        print(f"[SMTP 587 SUCESSO] E-mail enviado para {destinatario}!")
+        return True, "Enviado com sucesso (Porta 587)"
+    except Exception as e587:
+        print(f"[SMTP 587 FALHOU para {destinatario}] {e587} — tentando porta 465...")
+        erros.append(f"Porta 587: {e587}")
+
+    # --- Tentativa 2: Porta 465 com SSL Direto (Fallback) ---
+    try:
+        with smtplib.SMTP_SSL('smtp.skymail.net.br', 465, context=contexto_ssl, timeout=15) as server:
+            server.login(remetente, senha_email)
+            server.send_message(msg)
+        print(f"[SMTP 465 SUCESSO] E-mail enviado para {destinatario}!")
+        return True, "Enviado com sucesso (Porta 465)"
+    except Exception as e465:
+        print(f"[SMTP 465 FALHOU para {destinatario}] {e465}")
+        erros.append(f"Porta 465: {e465}")
+
+    return False, " | ".join(erros)
 
 def enviar_email_recuperacao(destinatario, nova_senha):
     remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br").strip()
@@ -151,6 +167,7 @@ def enviar_email_convite(destinatario, username, senha_provisoria, link_acesso):
 
 
 
+
 # ================= ROTAS DE AUTENTICAÇÃO =================
 @app.route('/', methods=['GET', 'POST'])
 def login():
@@ -163,21 +180,14 @@ def login():
         if user and check_password_hash(user.password_hash, password):
             login_user(user)
             
-            # Atualiza o IP da máquina diariamente no primeiro login do dia
+            # Registra a data de acesso (mantém o IP interno da máquina intacto)
             hoje = datetime.now().strftime('%Y-%m-%d')
-            detected_ip = get_client_ip()
-            
             if user.last_login_date != hoje:
                 user.last_login_date = hoje
-                if detected_ip and detected_ip not in ['127.0.0.1', 'localhost', '::1']:
-                    user.machine_ip = detected_ip
-            elif not user.machine_ip and detected_ip and detected_ip not in ['127.0.0.1', 'localhost', '::1']:
-                user.machine_ip = detected_ip
-                
-            try:
-                db.session.commit()
-            except Exception:
-                db.session.rollback()
+                try:
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
             
             if user.requires_password_reset:
                 return redirect(url_for('force_password_reset'))
@@ -244,12 +254,10 @@ def first_setup():
         flash('Cadastro concluído com sucesso!', 'success')
         return redirect(url_for('dashboard'))
         
-    detected_ip = get_client_ip()
-    suggested_ip = current_user.machine_ip or (detected_ip if detected_ip not in ['127.0.0.1', 'localhost', '::1'] else '')
     form_data = {
         'display_name': current_user.display_name or '',
         'email': current_user.email or '',
-        'machine_ip': suggested_ip
+        'machine_ip': current_user.machine_ip or ''
     }
     return render_template('first_setup.html', form_data=form_data)
 
@@ -266,10 +274,7 @@ def atualizar_meu_ip():
             db.session.rollback()
             flash(f'Erro ao salvar IP: {e}', 'error')
     else:
-        detected = get_client_ip()
-        current_user.machine_ip = detected
-        db.session.commit()
-        flash(f'IP da máquina atualizado para o IP de conexão detectado: {detected}', 'success')
+        flash('Por favor, informe o endereço IP fixo da sua máquina.', 'warning')
         
     return redirect(url_for('dashboard'))
 
