@@ -88,15 +88,16 @@ def disparar_email_smtp(destinatario, msg):
     senha_email = os.environ.get('EMAIL_SENHA', "EMPTY_PASS").strip().replace(" ", "")
 
     if not senha_email or senha_email == "EMPTY_PASS" or remetente == "email_padrao@empresa.com.br":
-        print("[SMTP AVISO] EMAIL_REMETENTE ou EMAIL_SENHA não configurados.")
-        return False, "Credenciais de e-mail não configuradas no servidor."
+        print("[SMTP AVISO] EMAIL_REMETENTE ou EMAIL_SENHA não configurados no Render.", flush=True)
+        return False, "Credenciais de e-mail não configuradas nas variáveis de ambiente do Render."
 
     contexto_ssl = ssl.create_default_context()
     contexto_ssl.check_hostname = False
     contexto_ssl.verify_mode = ssl.CERT_NONE
 
     # Auto-detecta o servidor SMTP de acordo com o e-mail cadastrado
-    if "gmail.com" in remetente.lower():
+    is_gmail = "gmail.com" in remetente.lower()
+    if is_gmail:
         smtp_host = "smtp.gmail.com"
     elif "outlook.com" in remetente.lower() or "hotmail.com" in remetente.lower():
         smtp_host = "smtp-mail.outlook.com"
@@ -105,32 +106,47 @@ def disparar_email_smtp(destinatario, msg):
 
     erros = []
 
-    # --- Tentativa 1: Porta 587 com STARTTLS (Padrão para Gmail e nuvem) ---
+    # --- Tentativa 1: Porta 587 com STARTTLS (Timeout de 6s para nunca travar o servidor) ---
     try:
-        with smtplib.SMTP(smtp_host, 587, timeout=15) as server:
+        print(f"[SMTP] Tentando conectar em {smtp_host}:587 (STARTTLS)...", flush=True)
+        with smtplib.SMTP(smtp_host, 587, timeout=6) as server:
             server.ehlo()
             server.starttls(context=contexto_ssl)
             server.ehlo()
             server.login(remetente, senha_email)
             server.send_message(msg)
-        print(f"[SMTP 587 SUCESSO via {smtp_host}] E-mail enviado para {destinatario}!")
-        return True, f"Enviado com sucesso via {smtp_host} (Porta 587)"
+        print(f"[SMTP 587 SUCESSO via {smtp_host}] E-mail entregue para {destinatario}!", flush=True)
+        return True, f"Enviado com sucesso via {smtp_host}"
+    except smtplib.SMTPAuthenticationError as auth_err:
+        msg_auth = f"Erro de autenticação no {smtp_host}."
+        if is_gmail:
+            msg_auth += " No Gmail, é obrigatório usar a Senha de App de 16 letras (e não a senha comum de login)."
+        print(f"[SMTP AUTH ERRO]: {auth_err}", flush=True)
+        return False, msg_auth
     except Exception as e587:
-        print(f"[SMTP 587 FALHOU via {smtp_host} para {destinatario}] {e587}")
+        print(f"[SMTP 587 FALHOU via {smtp_host}]: {e587}", flush=True)
         erros.append(f"Porta 587: {e587}")
 
-    # --- Tentativa 2: Porta 465 com SSL Direto (Fallback) ---
+    # --- Tentativa 2: Porta 465 com SSL Direto (Timeout de 6s) ---
     try:
-        with smtplib.SMTP_SSL(smtp_host, 465, context=contexto_ssl, timeout=15) as server:
+        print(f"[SMTP] Tentando fallback em {smtp_host}:465 (SSL)...", flush=True)
+        with smtplib.SMTP_SSL(smtp_host, 465, context=contexto_ssl, timeout=6) as server:
             server.login(remetente, senha_email)
             server.send_message(msg)
-        print(f"[SMTP 465 SUCESSO via {smtp_host}] E-mail enviado para {destinatario}!")
-        return True, f"Enviado com sucesso via {smtp_host} (Porta 465)"
+        print(f"[SMTP 465 SUCESSO via {smtp_host}] E-mail entregue para {destinatario}!", flush=True)
+        return True, f"Enviado com sucesso via {smtp_host}"
+    except smtplib.SMTPAuthenticationError as auth_err:
+        msg_auth = f"Erro de autenticação no {smtp_host}."
+        if is_gmail:
+            msg_auth += " No Gmail, é obrigatório usar a Senha de App de 16 letras (e não a senha comum de login)."
+        print(f"[SMTP AUTH ERRO]: {auth_err}", flush=True)
+        return False, msg_auth
     except Exception as e465:
-        print(f"[SMTP 465 FALHOU via {smtp_host} para {destinatario}] {e465}")
+        print(f"[SMTP 465 FALHOU via {smtp_host}]: {e465}", flush=True)
         erros.append(f"Porta 465: {e465}")
 
     return False, " | ".join(erros)
+
 
 
 def enviar_email_recuperacao(destinatario, nova_senha):
