@@ -76,11 +76,11 @@ def get_client_ip():
     return ip
 
 
-# ================= FUNÇÕES DE E-MAIL (SKYMAIL - PORTA 587 STARTTLS + FALLBACK 465 SSL) =================
+# ================= FUNÇÕES DE E-MAIL (SUPORTE AUTOMÁTICO: GMAIL, SKYMAIL, OUTLOOK) =================
 def disparar_email_smtp(destinatario, msg):
-    """Tenta porta 587 (STARTTLS) e, caso necessário, porta 465 (SSL)."""
+    """Detecta automaticamente o provedor (Gmail, Skymail, Outlook) e envia o e-mail."""
     remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br").strip()
-    senha_email = os.environ.get('EMAIL_SENHA', "EMPTY_PASS").strip()
+    senha_email = os.environ.get('EMAIL_SENHA', "EMPTY_PASS").strip().replace(" ", "")
 
     if not senha_email or senha_email == "EMPTY_PASS" or remetente == "email_padrao@empresa.com.br":
         print("[SMTP AVISO] EMAIL_REMETENTE ou EMAIL_SENHA não configurados.")
@@ -90,34 +90,43 @@ def disparar_email_smtp(destinatario, msg):
     contexto_ssl.check_hostname = False
     contexto_ssl.verify_mode = ssl.CERT_NONE
 
+    # Auto-detecta o servidor SMTP de acordo com o e-mail cadastrado
+    if "gmail.com" in remetente.lower():
+        smtp_host = "smtp.gmail.com"
+    elif "outlook.com" in remetente.lower() or "hotmail.com" in remetente.lower():
+        smtp_host = "smtp-mail.outlook.com"
+    else:
+        smtp_host = os.environ.get('SMTP_SERVER', "smtp.skymail.net.br").strip()
+
     erros = []
 
-    # --- Tentativa 1: Porta 587 com STARTTLS (Mais compatível com servidores em nuvem) ---
+    # --- Tentativa 1: Porta 587 com STARTTLS (Padrão para Gmail e nuvem) ---
     try:
-        with smtplib.SMTP('smtp.skymail.net.br', 587, timeout=15) as server:
+        with smtplib.SMTP(smtp_host, 587, timeout=15) as server:
             server.ehlo()
             server.starttls(context=contexto_ssl)
             server.ehlo()
             server.login(remetente, senha_email)
             server.send_message(msg)
-        print(f"[SMTP 587 SUCESSO] E-mail enviado para {destinatario}!")
-        return True, "Enviado com sucesso (Porta 587)"
+        print(f"[SMTP 587 SUCESSO via {smtp_host}] E-mail enviado para {destinatario}!")
+        return True, f"Enviado com sucesso via {smtp_host} (Porta 587)"
     except Exception as e587:
-        print(f"[SMTP 587 FALHOU para {destinatario}] {e587} — tentando porta 465...")
+        print(f"[SMTP 587 FALHOU via {smtp_host} para {destinatario}] {e587}")
         erros.append(f"Porta 587: {e587}")
 
     # --- Tentativa 2: Porta 465 com SSL Direto (Fallback) ---
     try:
-        with smtplib.SMTP_SSL('smtp.skymail.net.br', 465, context=contexto_ssl, timeout=15) as server:
+        with smtplib.SMTP_SSL(smtp_host, 465, context=contexto_ssl, timeout=15) as server:
             server.login(remetente, senha_email)
             server.send_message(msg)
-        print(f"[SMTP 465 SUCESSO] E-mail enviado para {destinatario}!")
-        return True, "Enviado com sucesso (Porta 465)"
+        print(f"[SMTP 465 SUCESSO via {smtp_host}] E-mail enviado para {destinatario}!")
+        return True, f"Enviado com sucesso via {smtp_host} (Porta 465)"
     except Exception as e465:
-        print(f"[SMTP 465 FALHOU para {destinatario}] {e465}")
+        print(f"[SMTP 465 FALHOU via {smtp_host} para {destinatario}] {e465}")
         erros.append(f"Porta 465: {e465}")
 
     return False, " | ".join(erros)
+
 
 def enviar_email_recuperacao(destinatario, nova_senha):
     remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br").strip()
