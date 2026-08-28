@@ -25,10 +25,15 @@ if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_recycle': 280,
+}
 
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+
 
 # Chave de criptografia Fernet (deve ter 32 bytes base64 url-safe)
 chave_padrao = 'dCyX0U3oHIROiltcaOR1PwkWry4yhMSLmQve55uDtsA=' 
@@ -821,9 +826,17 @@ def inicializar_banco():
         except Exception as e:
             print(f"[AVISO] Falha ao verificar/migrar tabelas: {e}")
 
-inicializar_banco()
+# ================= TRATAMENTO DE ERROS GLOBAL =================
+@app.errorhandler(500)
+def internal_server_error(e):
+    db.session.rollback()
+    print(f"[ERRO 500]: {e}")
+    flash("Ocorreu uma instabilidade momentânea na conexão com o servidor. Por favor, tente novamente.", "error")
+    return redirect(url_for('dashboard' if current_user.is_authenticated else 'login'))
 
-
+@app.errorhandler(404)
+def page_not_found(e):
+    return redirect(url_for('dashboard' if current_user.is_authenticated else 'login'))
 
 if __name__ == '__main__':
     porta = int(os.environ.get('PORT', 5000))
