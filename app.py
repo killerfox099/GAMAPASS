@@ -81,21 +81,96 @@ def get_client_ip():
     return ip
 
 
-# ================= FUNÇÕES DE E-MAIL (SUPORTE AUTOMÁTICO: GMAIL, SKYMAIL, OUTLOOK) =================
+import json
+import urllib.request
+import urllib.error
+
+# ================= FUNÇÕES DE E-MAIL (HTTPS API + SMTP FALLBACK) =================
+def enviar_via_resend(destinatario, assunto, corpo):
+    api_key = os.environ.get('RESEND_API_KEY', '').strip()
+    if not api_key:
+        return False, "Sem chave Resend"
+    
+    remetente = os.environ.get('RESEND_FROM', 'GAMAPASS <onboarding@resend.dev>').strip()
+    payload = {
+        "from": remetente,
+        "to": [destinatario],
+        "subject": assunto,
+        "text": corpo
+    }
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=json.dumps(payload).encode('utf-8'),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": "GAMAPASS/1.0"
+        },
+        method="POST"
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=8) as response:
+            if response.status in [200, 201]:
+                print(f"[RESEND HTTPS SUCESSO] E-mail entregue para {destinatario}!", flush=True)
+                return True, "Enviado com sucesso via Resend (HTTPS)"
+            return False, f"Resend Status: {response.status}"
+    except urllib.error.HTTPError as he:
+        err_msg = he.read().decode('utf-8', errors='ignore')
+        print(f"[RESEND ERRO]: {err_msg}", flush=True)
+        return False, f"Resend API: {err_msg}"
+    except Exception as ex:
+        print(f"[RESEND EXCEPTION]: {ex}", flush=True)
+        return False, str(ex)
+
+def enviar_via_brevo(destinatario, assunto, corpo):
+    api_key = os.environ.get('BREVO_API_KEY', '').strip()
+    if not api_key:
+        return False, "Sem chave Brevo"
+        
+    remetente = os.environ.get('EMAIL_REMETENTE', 'auxinformatica.gamacam@gmail.com').strip()
+    payload = {
+        "sender": {"name": "GAMAPASS", "email": remetente},
+        "to": [{"email": destinatario}],
+        "subject": assunto,
+        "textContent": corpo
+    }
+    req = urllib.request.Request(
+        "https://api.brevo.com/v3/smtp/email",
+        data=json.dumps(payload).encode('utf-8'),
+        headers={
+            "api-key": api_key,
+            "Content-Type": "application/json",
+            "User-Agent": "GAMAPASS/1.0"
+        },
+        method="POST"
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=8) as response:
+            if response.status in [200, 201]:
+                print(f"[BREVO HTTPS SUCESSO] E-mail entregue para {destinatario}!", flush=True)
+                return True, "Enviado com sucesso via Brevo (HTTPS)"
+            return False, f"Brevo Status: {response.status}"
+    except urllib.error.HTTPError as he:
+        err_msg = he.read().decode('utf-8', errors='ignore')
+        print(f"[BREVO ERRO]: {err_msg}", flush=True)
+        return False, f"Brevo API: {err_msg}"
+    except Exception as ex:
+        print(f"[BREVO EXCEPTION]: {ex}", flush=True)
+        return False, str(ex)
+
 def disparar_email_smtp(destinatario, msg):
-    """Detecta automaticamente o provedor (Gmail, Skymail, Outlook) e envia o e-mail."""
+    """Detecta automaticamente o provedor (Gmail, Skymail, Outlook) e tenta SMTP."""
     remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br").strip()
     senha_email = os.environ.get('EMAIL_SENHA', "EMPTY_PASS").strip().replace(" ", "")
 
     if not senha_email or senha_email == "EMPTY_PASS" or remetente == "email_padrao@empresa.com.br":
         print("[SMTP AVISO] EMAIL_REMETENTE ou EMAIL_SENHA não configurados no Render.", flush=True)
-        return False, "Credenciais de e-mail não configuradas nas variáveis de ambiente do Render."
+        return False, "Credenciais de e-mail não configuradas no Render."
 
     contexto_ssl = ssl.create_default_context()
     contexto_ssl.check_hostname = False
     contexto_ssl.verify_mode = ssl.CERT_NONE
 
-    # Auto-detecta o servidor SMTP de acordo com o e-mail cadastrado
     is_gmail = "gmail.com" in remetente.lower()
     if is_gmail:
         smtp_host = "smtp.gmail.com"
@@ -106,9 +181,9 @@ def disparar_email_smtp(destinatario, msg):
 
     erros = []
 
-    # --- Tentativa 1: Porta 587 com STARTTLS (Timeout de 6s para nunca travar o servidor) ---
+    # --- Tentativa 1: Porta 587 (STARTTLS) ---
     try:
-        print(f"[SMTP] Tentando conectar em {smtp_host}:587 (STARTTLS)...", flush=True)
+        print(f"[SMTP] Tentando {smtp_host}:587 (STARTTLS)...", flush=True)
         with smtplib.SMTP(smtp_host, 587, timeout=6) as server:
             server.ehlo()
             server.starttls(context=contexto_ssl)
@@ -120,16 +195,14 @@ def disparar_email_smtp(destinatario, msg):
     except smtplib.SMTPAuthenticationError as auth_err:
         msg_auth = f"Erro de autenticação no {smtp_host}."
         if is_gmail:
-            msg_auth += " No Gmail, é obrigatório usar a Senha de App de 16 letras (e não a senha comum de login)."
-        print(f"[SMTP AUTH ERRO]: {auth_err}", flush=True)
+            msg_auth += " No Gmail, use a Senha de App de 16 letras."
         return False, msg_auth
     except Exception as e587:
-        print(f"[SMTP 587 FALHOU via {smtp_host}]: {e587}", flush=True)
         erros.append(f"Porta 587: {e587}")
 
-    # --- Tentativa 2: Porta 465 com SSL Direto (Timeout de 6s) ---
+    # --- Tentativa 2: Porta 465 (SSL) ---
     try:
-        print(f"[SMTP] Tentando fallback em {smtp_host}:465 (SSL)...", flush=True)
+        print(f"[SMTP] Tentando {smtp_host}:465 (SSL)...", flush=True)
         with smtplib.SMTP_SSL(smtp_host, 465, context=contexto_ssl, timeout=6) as server:
             server.login(remetente, senha_email)
             server.send_message(msg)
@@ -138,37 +211,49 @@ def disparar_email_smtp(destinatario, msg):
     except smtplib.SMTPAuthenticationError as auth_err:
         msg_auth = f"Erro de autenticação no {smtp_host}."
         if is_gmail:
-            msg_auth += " No Gmail, é obrigatório usar a Senha de App de 16 letras (e não a senha comum de login)."
-        print(f"[SMTP AUTH ERRO]: {auth_err}", flush=True)
+            msg_auth += " No Gmail, use a Senha de App de 16 letras."
         return False, msg_auth
     except Exception as e465:
-        print(f"[SMTP 465 FALHOU via {smtp_host}]: {e465}", flush=True)
         erros.append(f"Porta 465: {e465}")
 
-    return False, " | ".join(erros)
+    erro_detalhe = " | ".join(erros)
+    if "101" in erro_detalhe or "unreachable" in erro_detalhe.lower():
+        erro_detalhe = "O Render bloqueia as portas SMTP 587/465 na camada gratuita. Para enviar e-mails, configure uma chave RESEND_API_KEY ou BREVO_API_KEY no Render."
+    return False, erro_detalhe
 
+def enviar_email_geral(destinatario, assunto, corpo):
+    """Envia por API HTTPS (Resend/Brevo) se configurado, ou por SMTP como fallback."""
+    if os.environ.get('RESEND_API_KEY'):
+        sucesso, msg = enviar_via_resend(destinatario, assunto, corpo)
+        if sucesso:
+            return True, msg
+            
+    if os.environ.get('BREVO_API_KEY'):
+        sucesso, msg = enviar_via_brevo(destinatario, assunto, corpo)
+        if sucesso:
+            return True, msg
 
-
-def enviar_email_recuperacao(destinatario, nova_senha):
     remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br").strip()
-
-    msg = MIMEText(
-        f"Olá!\n\nSua senha do GAMAPASS foi redefinida.\n"
-        f"Sua nova senha temporária é: {nova_senha}\n\n"
-        f"Ao fazer login, o sistema exigirá o cadastro de uma nova senha segura.",
-        'plain', 'utf-8'
-    )
-    msg['Subject'] = 'Recuperação de Acesso - GAMAPASS'
+    msg = MIMEText(corpo, 'plain', 'utf-8')
+    msg['Subject'] = assunto
     msg['From'] = f"GAMAPASS - Gama Caminhões <{remetente}>"
     msg['To'] = destinatario
     msg['Reply-To'] = remetente
 
-    sucesso, _ = disparar_email_smtp(destinatario, msg)
+    return disparar_email_smtp(destinatario, msg)
+
+def enviar_email_recuperacao(destinatario, nova_senha):
+    assunto = 'Recuperação de Acesso - GAMAPASS'
+    corpo = (
+        f"Olá!\n\nSua senha do GAMAPASS foi redefinida.\n"
+        f"Sua nova senha temporária é: {nova_senha}\n\n"
+        f"Ao fazer login, o sistema exigirá o cadastro de uma nova senha segura."
+    )
+    sucesso, _ = enviar_email_geral(destinatario, assunto, corpo)
     return sucesso
 
 def enviar_email_convite(destinatario, username, senha_provisoria, link_acesso):
-    remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br").strip()
-
+    assunto = 'Convite de Acesso - GAMAPASS (Gama Caminhões)'
     corpo = (
         f"Olá!\n\n"
         f"Você foi cadastrado na plataforma GAMAPASS — o cofre corporativo de credenciais e senhas da Gama Caminhões.\n\n"
@@ -182,14 +267,8 @@ def enviar_email_convite(destinatario, username, senha_provisoria, link_acesso):
         f"Equipe de Tecnologia da Informação\n"
         f"Gama Caminhões"
     )
+    return enviar_email_geral(destinatario, assunto, corpo)
 
-    msg = MIMEText(corpo, 'plain', 'utf-8')
-    msg['Subject'] = 'Convite de Acesso - GAMAPASS (Gama Caminhões)'
-    msg['From'] = f"GAMAPASS - Gama Caminhões <{remetente}>"
-    msg['To'] = destinatario
-    msg['Reply-To'] = remetente
-
-    return disparar_email_smtp(destinatario, msg)
 
 
 
