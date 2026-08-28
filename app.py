@@ -110,14 +110,19 @@ def enviar_via_resend(destinatario, assunto, corpo):
     )
     try:
         with urllib.request.urlopen(req, timeout=8) as response:
-            if response.status in [200, 201]:
-                print(f"[RESEND HTTPS SUCESSO] E-mail entregue para {destinatario}!", flush=True)
-                return True, "Enviado com sucesso via Resend (HTTPS)"
-            return False, f"Resend Status: {response.status}"
+            res_body = response.read().decode('utf-8')
+            print(f"[RESEND HTTPS SUCESSO] E-mail entregue para {destinatario}! Resposta: {res_body}", flush=True)
+            return True, "Enviado com sucesso via Resend (HTTPS)"
     except urllib.error.HTTPError as he:
         err_msg = he.read().decode('utf-8', errors='ignore')
-        print(f"[RESEND ERRO]: {err_msg}", flush=True)
-        return False, f"Resend API: {err_msg}"
+        print(f"[RESEND HTTP ERROR {he.code}]: {err_msg}", flush=True)
+        try:
+            err_json = json.loads(err_msg)
+            if 'message' in err_json:
+                return False, f"Resend ({he.code}): {err_json['message']}"
+        except Exception:
+            pass
+        return False, f"Resend ({he.code}): {err_msg}"
     except Exception as ex:
         print(f"[RESEND EXCEPTION]: {ex}", flush=True)
         return False, str(ex)
@@ -146,10 +151,8 @@ def enviar_via_brevo(destinatario, assunto, corpo):
     )
     try:
         with urllib.request.urlopen(req, timeout=8) as response:
-            if response.status in [200, 201]:
-                print(f"[BREVO HTTPS SUCESSO] E-mail entregue para {destinatario}!", flush=True)
-                return True, "Enviado com sucesso via Brevo (HTTPS)"
-            return False, f"Brevo Status: {response.status}"
+            print(f"[BREVO HTTPS SUCESSO] E-mail entregue para {destinatario}!", flush=True)
+            return True, "Enviado com sucesso via Brevo (HTTPS)"
     except urllib.error.HTTPError as he:
         err_msg = he.read().decode('utf-8', errors='ignore')
         print(f"[BREVO ERRO]: {err_msg}", flush=True)
@@ -223,15 +226,21 @@ def disparar_email_smtp(destinatario, msg):
 
 def enviar_email_geral(destinatario, assunto, corpo):
     """Envia por API HTTPS (Resend/Brevo) se configurado, ou por SMTP como fallback."""
-    if os.environ.get('RESEND_API_KEY'):
-        sucesso, msg = enviar_via_resend(destinatario, assunto, corpo)
+    resend_key = os.environ.get('RESEND_API_KEY', '').strip()
+    if resend_key:
+        sucesso, msg_resend = enviar_via_resend(destinatario, assunto, corpo)
         if sucesso:
-            return True, msg
+            return True, msg_resend
+        else:
+            return False, f"Resend API: {msg_resend}"
             
-    if os.environ.get('BREVO_API_KEY'):
-        sucesso, msg = enviar_via_brevo(destinatario, assunto, corpo)
+    brevo_key = os.environ.get('BREVO_API_KEY', '').strip()
+    if brevo_key:
+        sucesso, msg_brevo = enviar_via_brevo(destinatario, assunto, corpo)
         if sucesso:
-            return True, msg
+            return True, msg_brevo
+        else:
+            return False, f"Brevo API: {msg_brevo}"
 
     remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br").strip()
     msg = MIMEText(corpo, 'plain', 'utf-8')
@@ -241,6 +250,7 @@ def enviar_email_geral(destinatario, assunto, corpo):
     msg['Reply-To'] = remetente
 
     return disparar_email_smtp(destinatario, msg)
+
 
 def enviar_email_recuperacao(destinatario, nova_senha):
     assunto = 'Recuperação de Acesso - GAMAPASS'
