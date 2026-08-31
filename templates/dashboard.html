@@ -1,9 +1,10 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}GAMAPASS - Cofre{% endblock %}
 {% block main_style %}align-items: flex-start; padding-top: 80px;{% endblock %}
 
 {% block content %}
-<div class="container" style="max-width: 800px; width: 100%;">
+<div class="container" style="max-width: 820px; width: 100%;" id="main-container">
+
     <!-- Cabeçalho -->
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; border-bottom: 2px solid var(--navy-blue); padding-bottom: 10px; margin-bottom: 20px; gap: 15px;">
         <div>
@@ -11,19 +12,24 @@
             <div style="font-size: 0.85em; color: #555; margin-top: 5px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                 <span>🏢 {{ current_user.unit or 'Unidade' }} / {{ current_user.department or 'Departamento' }}</span>
                 <span>•</span>
-                <span>🖥️ IP da Máquina: <strong style="color: darkred; font-size: 1.05em;">{{ current_user.machine_ip or 'Não registrado' }}</strong></span>
+                <span>🖥️ IP: <strong style="color: darkred;">{{ current_user.machine_ip or 'Não registrado' }}</strong></span>
                 <button type="button" onclick="toggleIpEdit()" style="background: none; border: none; color: var(--navy-blue); font-size: 0.9em; text-decoration: underline; cursor: pointer; padding: 0; width: auto; font-weight: bold;">✏️ Alterar IP</button>
             </div>
         </div>
-        <div style="display: flex; gap: 12px; align-items: center;">
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <!-- Dark Mode Toggle -->
+            <button type="button" id="dark-toggle" onclick="toggleDarkMode()" title="Alternar Modo Escuro"
+                style="width: auto; padding: 7px 14px; font-size: 0.9em; background-color: #4a5568; border-radius: 20px;">
+                🌙 Modo Escuro
+            </button>
             {% if current_user.is_admin %}
-                <a href="{{ url_for('admin_panel') }}" style="color: darkred; font-weight: bold; text-decoration: none; border: 1px solid darkred; padding: 6px 12px; border-radius: 4px; font-size: 0.9em;">🛡️ Painel Admin</a>
+                <a href="{{ url_for('admin_panel') }}" style="color: darkred; font-weight: bold; text-decoration: none; border: 1px solid darkred; padding: 6px 12px; border-radius: 4px; font-size: 0.9em;">🛡️ Admin</a>
             {% endif %}
             <a href="{{ url_for('logout') }}" style="color: var(--navy-blue); font-weight: bold; text-decoration: none; border: 1px solid var(--navy-blue); padding: 6px 12px; border-radius: 4px; font-size: 0.9em;">Sair</a>
         </div>
     </div>
 
-    <!-- FORMULÁRIO RÁPIDO DE ALTERAÇÃO DE IP (OCULTO POR PADRÃO) -->
+    <!-- Alterar IP -->
     <div id="ip-edit-box" style="display: none; background-color: #f0f4f8; border: 1px solid var(--navy-blue); border-radius: 6px; padding: 15px; margin-bottom: 25px;">
         <form method="POST" action="{{ url_for('atualizar_meu_ip') }}" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 0;">
             <label style="margin: 0; font-size: 0.9em; white-space: nowrap; font-weight: bold; color: var(--navy-blue);">IP Fixo da Máquina:</label>
@@ -33,23 +39,49 @@
         </form>
     </div>
 
-
-    <!-- Formulário de Adicionar -->
-    <form method="POST" action="{{ url_for('dashboard') }}" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 30px; align-items: center;">
-        <input type="text" name="service" placeholder="Serviço (ex: Syonet)" required style="flex: 1 1 120px; padding: 12px;">
-        <input type="text" name="service_url" placeholder="Link/URL (Opcional)" style="flex: 1 1 150px; padding: 12px;">
-        <input type="text" name="service_user" placeholder="Login no serviço" required style="flex: 1 1 150px; padding: 12px;">
-        <div class="input-with-icon" style="flex: 1 1 180px;">
-            <input type="password" id="save_pass" name="service_pass" placeholder="Senha" required style="width: 100%;">
-            <button type="button" class="toggle-icon" onclick="togglePassword('save_pass', this)" style="right: 5px;">👁️</button>
-        </div>
-        <button type="submit" style="flex: 0 1 auto; padding: 12px 25px; white-space: nowrap;">Salvar</button>
-    </form>
-
-    <!-- BARRA DE PESQUISA -->
-    <div style="margin-bottom: 20px;">
-        <input type="text" id="barraPesquisa" onkeyup="filtrarSenhas()" placeholder="🔍 Pesquisar por Serviço, URL ou Login..." style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 16px;">
+    <!-- Formulário Adicionar Credencial -->
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
+        <h4 style="margin: 0 0 15px 0; color: var(--navy-blue); font-size: 1em;">➕ Adicionar Nova Credencial</h4>
+        <form method="POST" action="{{ url_for('dashboard') }}">
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+                <input type="text" name="service" placeholder="Serviço (ex: Syonet)" required style="flex: 1 1 130px; padding: 10px;">
+                <input type="text" name="service_url" placeholder="URL/Link (Opcional)" style="flex: 1 1 150px; padding: 10px;">
+                <input type="text" name="service_user" placeholder="Login no serviço" required style="flex: 1 1 150px; padding: 10px;">
+            </div>
+            <div style="display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap;">
+                <div style="flex: 1 1 200px;">
+                    <div class="input-with-icon">
+                        <input type="password" id="add_pass" name="service_pass" placeholder="Senha" required
+                            style="width: 100%;" oninput="checkStrength(this.value,'add_strength_bar','add_strength_label'); checkDuplicate(this.value,'add_dup_alert')">
+                        <button type="button" class="toggle-icon" onclick="togglePassword('add_pass', this)">👁️</button>
+                    </div>
+                    <!-- Barra de força -->
+                    <div style="margin-top: 6px;">
+                        <div id="add_strength_bar" style="height: 5px; border-radius: 3px; background: #e2e8f0; transition: all 0.3s; width: 0%;"></div>
+                        <small id="add_strength_label" style="font-size: 0.78em; color: #888;"></small>
+                    </div>
+                    <!-- Alerta de senha repetida -->
+                    <div id="add_dup_alert" style="display:none; margin-top:5px; padding: 5px 10px; background:#fefcbf; border:1px solid #d69e2e; border-radius:4px; font-size:0.82em; color:#744210;">
+                        ⚠️ Atenção: esta senha já está em uso em outro serviço do seu cofre!
+                    </div>
+                </div>
+                <button type="button" onclick="gerarSenha('add_pass','add_strength_bar','add_strength_label')"
+                    style="width: auto; padding: 10px 14px; font-size: 0.88em; background-color: #2b7a4b; white-space: nowrap; flex-shrink: 0;">🎲 Gerar Senha</button>
+                <button type="submit" style="flex: 0 1 auto; padding: 10px 22px; white-space: nowrap;">Salvar</button>
+            </div>
+        </form>
     </div>
+
+    <!-- Barra de Pesquisa e Controles -->
+    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
+        <input type="text" id="barraPesquisa" onkeyup="filtrarSenhas()" placeholder="🔍 Pesquisar por Serviço, URL ou Login..."
+            style="flex: 1 1 250px; padding: 11px; border-radius: 6px; border: 1px solid #ccc; font-size: 15px;">
+        <select id="ordenacao" onchange="ordenarSenhas()" style="padding: 11px; border-radius: 6px; border: 1px solid #ccc; background: white; font-size: 0.9em; flex-shrink: 0;">
+            <option value="az">A → Z</option>
+            <option value="recente">Mais Recentes</option>
+        </select>
+    </div>
+    <div id="contador-resultado" style="font-size: 0.85em; color: #666; margin-bottom: 15px;"></div>
 
     <!-- Título Senhas -->
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 15px; gap: 10px;">
@@ -57,259 +89,319 @@
         <button type="button" class="btn-secondary" id="toggleAllBtn" onclick="toggleAllSecrets()" style="width: auto; padding: 8px 15px;">Revelar Senhas</button>
     </div>
 
+    <!-- JSON das senhas para verificação de duplicatas no frontend -->
+    <script>
+        const senhasSalvas = {{ entries | map(attribute='password') | list | tojson }};
+    </script>
+
     <!-- Lista de Senhas -->
+    <div id="lista-senhas">
     {% if entries %}
         {% for entry in entries %}
-            <div class="password-card linha-senha" style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 15px;">
-                
-                <!-- MODO VISUALIZAÇÃO -->
-                <div id="view-pass-{{ entry.id }}" style="display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap;">
-                    <div style="word-break: break-all; flex: 1; min-width: 200px;">
-                        <strong>Serviço:</strong> 
-                        {% if entry.service_url %}
-                            <a href="{{ entry.service_url if 'http' in entry.service_url else 'https://' + entry.service_url }}" target="_blank" style="color: var(--navy-blue); text-decoration: underline;">
-                                <span class="busca-servico">{{ entry.service_name }}</span> 
-                            </a>
-                            <span class="busca-url" style="display: none;">{{ entry.service_url }}</span>
-                        {% else %}
+        <div class="password-card linha-senha" data-service="{{ entry.service_name }}" data-created="{{ entry.id }}" style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 15px;">
+
+            <!-- MODO VISUALIZAÇÃO -->
+            <div id="view-pass-{{ entry.id }}" style="display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap;">
+                <div style="word-break: break-all; flex: 1; min-width: 200px;">
+                    <strong>Serviço:</strong>
+                    {% if entry.service_url %}
+                        <a href="{{ entry.service_url if 'http' in entry.service_url else 'https://' + entry.service_url }}" target="_blank" style="color: var(--navy-blue); text-decoration: underline;">
                             <span class="busca-servico">{{ entry.service_name }}</span>
-                            <span class="busca-url" style="display: none;"></span>
-                        {% endif %}
-                        <br>
-                        <strong>Usuário:</strong> <span class="busca-login">{{ entry.service_username }}</span> <br>
-                        <strong>Senha:</strong> <code class="secret-text" data-secret="{{ entry.password }}">********</code>
-                    </div>
-                    
-                    <div style="display: flex; gap: 10px; flex-shrink: 0;">
-                        <!-- NOVO BOTÃO DE EDITAR -->
-                        <button type="button" onclick="toggleEditPass('{{ entry.id }}')" style="width: auto; padding: 8px 15px; font-size: 0.9em; background-color: #555; color: white; border: none; border-radius: 4px; cursor: pointer;">✏️ Editar</button>
-                        
-                        <form method="POST" action="{{ url_for('delete_password', pass_id=entry.id) }}" onsubmit="return confirm('Tem certeza que deseja apagar essa credencial permanentemente?');" style="margin: 0;">
-                            <button type="submit" class="btn-danger" style="width: auto; padding: 8px 15px; font-size: 0.9em;">🗑️ Apagar</button>
-                        </form>
-                    </div>
+                        </a>
+                        <span class="busca-url" style="display:none;">{{ entry.service_url }}</span>
+                    {% else %}
+                        <span class="busca-servico">{{ entry.service_name }}</span>
+                        <span class="busca-url" style="display:none;"></span>
+                    {% endif %}
+                    <br>
+                    <strong>Usuário:</strong> <span class="busca-login">{{ entry.service_username }}</span><br>
+                    <strong>Senha:</strong>
+                    <code class="secret-text" data-secret="{{ entry.password }}">********</code>
+                    <button type="button" onclick="copiarSenha('{{ entry.password }}', this)"
+                        style="width:auto; padding: 3px 10px; font-size: 0.78em; background:#4a5568; border-radius:4px; margin-left:5px; vertical-align: middle;">📋 Copiar</button>
+                    <!-- Indicador de força inline -->
+                    {% set pw = entry.password %}
+                    {% set score = 0 %}
+                    {% if pw|length >= 8 %}{% set score = score + 1 %}{% endif %}
+                    {% if pw|length >= 12 %}{% set score = score + 1 %}{% endif %}
+                    {% if pw | regex_search('[A-Z]') %}{% set score = score + 1 %}{% endif %}
+                    {% if pw | regex_search('[0-9]') %}{% set score = score + 1 %}{% endif %}
+                    {% if pw | regex_search('[!@#$%*|&]') %}{% set score = score + 1 %}{% endif %}
+                    <span style="font-size: 0.78em; margin-left: 8px; padding: 2px 6px; border-radius: 3px; font-weight: bold;
+                        {% if score <= 2 %}background:#fed7d7; color:#822727;
+                        {% elif score == 3 %}background:#fefcbf; color:#744210;
+                        {% elif score == 4 %}background:#c6f6d5; color:#22543d;
+                        {% else %}background:#bee3f8; color:#2a4365;{% endif %}">
+                        {% if score <= 2 %}🔴 Fraca
+                        {% elif score == 3 %}🟡 Média
+                        {% elif score == 4 %}🟢 Forte
+                        {% else %}🔵 Muito Forte{% endif %}
+                    </span>
                 </div>
 
-                <!-- MODO EDIÇÃO (Fica escondido até clicar em Editar) -->
-                <div id="edit-pass-{{ entry.id }}" style="display: none; background-color: #f0f4f8; padding: 15px; border-radius: 6px; border: 1px solid var(--navy-blue);">
-                    <form method="POST" action="{{ url_for('editar_senha', pass_id=entry.id) }}" style="display: flex; flex-direction: column; gap: 10px; margin: 0;">
-                        
-                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                            <div style="flex: 1 1 200px;">
-                                <label style="font-size: 0.9em; font-weight: bold; color: var(--navy-blue);">Serviço:</label>
-                                <input type="text" name="service" value="{{ entry.service_name }}" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-                            </div>
-                            <div style="flex: 1 1 200px;">
-                                <label style="font-size: 0.9em; font-weight: bold; color: var(--navy-blue);">URL/Link:</label>
-                                <input type="text" name="service_url" value="{{ entry.service_url or '' }}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-                            </div>
-                        </div>
-
-                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                            <div style="flex: 1 1 200px;">
-                                <label style="font-size: 0.9em; font-weight: bold; color: var(--navy-blue);">Usuário/Login:</label>
-                                <input type="text" name="service_user" value="{{ entry.service_username }}" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-                            </div>
-                            <div style="flex: 1 1 200px;">
-                                <label style="font-size: 0.9em; font-weight: bold; color: var(--navy-blue);">Nova Senha (vazio para manter):</label>
-                                <div class="input-with-icon" style="width: 100%;">
-                                    <input type="password" id="edit_pass_{{ entry.id }}" name="service_pass" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-                                    <button type="button" class="toggle-icon" onclick="togglePassword('edit_pass_{{ entry.id }}', this)" style="right: 5px; top: 50%; transform: translateY(-50%);">👁️</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style="display: flex; gap: 10px; margin-top: 10px;">
-                            <button type="submit" style="background-color: var(--navy-blue); flex: 1; padding: 10px; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">💾 Salvar Alterações</button>
-                            <button type="button" onclick="toggleEditPass('{{ entry.id }}')" style="background-color: #ccc; color: #333; flex: 1; padding: 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Cancelar</button>
-                        </div>
-                        
+                <div style="display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap;">
+                    <button type="button" onclick="verHistorico({{ entry.id }}, '{{ entry.service_name }}')"
+                        style="width: auto; padding: 7px 12px; font-size: 0.85em; background-color: #4a5568; color: white; border: none; border-radius: 4px; cursor: pointer;">🕒 Histórico</button>
+                    <button type="button" onclick="toggleEditPass('{{ entry.id }}')"
+                        style="width: auto; padding: 7px 12px; font-size: 0.85em; background-color: #555; color: white; border: none; border-radius: 4px; cursor: pointer;">✏️ Editar</button>
+                    <form method="POST" action="{{ url_for('delete_password', pass_id=entry.id) }}" onsubmit="return confirm('Tem certeza que deseja apagar essa credencial permanentemente?');" style="margin: 0;">
+                        <button type="submit" class="btn-danger" style="width: auto; padding: 7px 12px; font-size: 0.85em;">🗑️ Apagar</button>
                     </form>
                 </div>
-                
             </div>
+
+            <!-- Modal de Histórico (oculto) -->
+            <div id="hist-{{ entry.id }}" style="display:none; background:#f0f4f8; border:1px solid #ccc; border-radius:6px; padding:12px; font-size:0.88em;">
+                <strong style="color: var(--navy-blue);">🕒 Histórico de "{{ entry.service_name }}"</strong>
+                <div id="hist-content-{{ entry.id }}" style="margin-top:8px; color:#444;">Carregando...</div>
+                <button type="button" onclick="fecharHistorico({{ entry.id }})" style="width:auto; padding:5px 12px; font-size:0.82em; background:#6c757d; margin-top:8px;">Fechar</button>
+            </div>
+
+            <!-- MODO EDIÇÃO -->
+            <div id="edit-pass-{{ entry.id }}" style="display: none; background-color: #f0f4f8; padding: 15px; border-radius: 6px; border: 1px solid var(--navy-blue);">
+                <form method="POST" action="{{ url_for('editar_senha', pass_id=entry.id) }}" style="display: flex; flex-direction: column; gap: 10px; margin: 0;">
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <div style="flex: 1 1 200px;">
+                            <label style="font-size: 0.9em; font-weight: bold; color: var(--navy-blue);">Serviço:</label>
+                            <input type="text" name="service" value="{{ entry.service_name }}" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div style="flex: 1 1 200px;">
+                            <label style="font-size: 0.9em; font-weight: bold; color: var(--navy-blue);">URL/Link:</label>
+                            <input type="text" name="service_url" value="{{ entry.service_url or '' }}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <div style="flex: 1 1 200px;">
+                            <label style="font-size: 0.9em; font-weight: bold; color: var(--navy-blue);">Usuário/Login:</label>
+                            <input type="text" name="service_user" value="{{ entry.service_username }}" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div style="flex: 1 1 200px;">
+                            <label style="font-size: 0.9em; font-weight: bold; color: var(--navy-blue);">Nova Senha (vazio = manter atual):</label>
+                            <div class="input-with-icon" style="width:100%;">
+                                <input type="password" id="edit_pass_{{ entry.id }}" name="service_pass"
+                                    style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
+                                    oninput="checkStrength(this.value,'edit_bar_{{ entry.id }}','edit_lbl_{{ entry.id }}')">
+                                <button type="button" class="toggle-icon" onclick="togglePassword('edit_pass_{{ entry.id }}', this)" style="right: 5px; top: 50%; transform: translateY(-50%);">👁️</button>
+                            </div>
+                            <div style="margin-top:4px;">
+                                <div id="edit_bar_{{ entry.id }}" style="height:4px; border-radius:3px; background:#e2e8f0; transition:all 0.3s; width:0%;"></div>
+                                <small id="edit_lbl_{{ entry.id }}" style="font-size:0.78em; color:#888;"></small>
+                            </div>
+                            <button type="button" onclick="gerarSenha('edit_pass_{{ entry.id }}','edit_bar_{{ entry.id }}','edit_lbl_{{ entry.id }}')"
+                                style="width: auto; padding: 5px 12px; font-size: 0.82em; background-color: #2b7a4b; margin-top:6px;">🎲 Gerar Senha</button>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 5px;">
+                        <button type="submit" style="background-color: var(--navy-blue); flex: 1; padding: 10px;">💾 Salvar</button>
+                        <button type="button" onclick="toggleEditPass('{{ entry.id }}')" style="background-color: #ccc; color: #333; flex: 1; padding: 10px; border: none; border-radius: 4px; cursor: pointer;">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
         {% endfor %}
     {% else %}
         <p>Nenhuma senha salva ainda.</p>
     {% endif %}
+    </div>
 </div>
 
-<script>
-
-    function toggleEditPass(passId) {
-        const viewMode = document.getElementById('view-pass-' + passId);
-        const editMode = document.getElementById('edit-pass-' + passId);
-        
-        if (editMode.style.display === 'none') { 
-            editMode.style.display = 'block'; 
-            viewMode.style.display = 'none'; 
-        } else { 
-            editMode.style.display = 'none'; 
-            viewMode.style.display = 'flex'; 
-        }
-    }
-
-    function togglePassword(inputId, btnElement) {
-        var input = document.getElementById(inputId);
-        input.type = input.type === "password" ? "text" : "password";
-        btnElement.textContent = input.type === "password" ? "👁️" : "👁️‍🗨️";
-    }
-
-    let areSecretsHidden = true;
-    function toggleAllSecrets() {
-        const secretSpans = document.querySelectorAll('.secret-text');
-        const btn = document.getElementById('toggleAllBtn');
-        areSecretsHidden = !areSecretsHidden;
-        secretSpans.forEach(span => {
-            span.textContent = areSecretsHidden ? '********' : span.getAttribute('data-secret');
-        });
-        btn.textContent = areSecretsHidden ? 'Revelar Senhas' : 'Esconder Senhas';
-        btn.style.backgroundColor = areSecretsHidden ? '#ccc' : '#ff4444';
-        btn.style.color = areSecretsHidden ? '#333' : '#fff';
-    }
-</script>
-
-<!-- CSS incorporado para garantir que os botões fiquem idênticos e bonitos -->
-<style>
-    .botoes-csv-container {
-        display: flex;
-        flex-direction: column; /* Coloca um abaixo do outro */
-        gap: 12px; /* Espaçamento exato entre os botões */
-        max-width: 250px; /* Define um tamanho limite para não ficarem gigantes */
-        margin-bottom: 20px;
-    }
-
-    .btn-gamapass {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        background-color: #2c3e50; /* Cor azul escuro moderna (ajuste se quiser) */
-        color: #ffffff;
-        padding: 12px 20px;
-        border: none;
-        border-radius: 6px;
-        font-size: 15px;
-        font-weight: 600;
-        text-decoration: none;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        width: 100%;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-
-    .btn-gamapass:hover {
-        background-color: #1a252f;
-        box-shadow: 0 6px 8px rgba(0,0,0,0.15);
-        transform: translateY(-2px); /* Efeito sutil de levantar ao passar o mouse */
-        color: #ffffff;
-    }
+<!-- Botões CSV -->
+<style>.botoes-csv-container{display:flex;flex-direction:column;gap:12px;max-width:250px;margin:20px auto 0 auto;}
+.btn-gamapass{display:flex;align-items:center;justify-content:center;gap:10px;background-color:#2c3e50;color:#fff;padding:12px 20px;border:none;border-radius:6px;font-size:15px;font-weight:600;text-decoration:none;cursor:pointer;transition:all 0.3s;width:100%;box-sizing:border-box;font-family:inherit;}
+.btn-gamapass:hover{background-color:#1a252f;box-shadow:0 6px 8px rgba(0,0,0,.15);transform:translateY(-2px);color:#fff;}
 </style>
-
-<!-- CSS incorporado para garantir que os botões fiquem idênticos -->
-<style>
-    .botoes-csv-container {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        max-width: 250px;
-        margin-bottom: 20px;
-    }
-
-    .btn-gamapass {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        background-color: #2c3e50;
-        color: #ffffff;
-        padding: 12px 20px;
-        border: none;
-        border-radius: 6px;
-        font-size: 15px;
-        font-weight: 600;
-        text-decoration: none;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        width: 100%;
-        box-sizing: border-box; /* O segredo para alinhar tags diferentes */
-        font-family: inherit; /* Garante que a fonte ocupe o mesmo espaço */
-    }
-
-    .btn-gamapass:hover {
-        background-color: #1a252f;
-        box-shadow: 0 6px 8px rgba(0,0,0,0.15);
-        transform: translateY(-2px);
-        color: #ffffff;
-    }
-</style>
-
-<!-- O Container dos Botões -->
 <div class="botoes-csv-container">
-    
-    <!-- 1. BOTÃO DE EXPORTAR -->
-    <a href="{{ url_for('exportar_csv') }}" class="btn-gamapass">
-        📥 Exportar Senhas
-    </a>
-
-    <!-- 2. BOTÃO DE IMPORTAR -->
-    <!-- Removi o display: flex daqui e deixei como display: block -->
-    <form id="formImportacao" action="{{ url_for('importar_csv') }}" method="POST" enctype="multipart/form-data" style="margin: 0; width: 100%; display: block;">
-        
-        <button type="button" class="btn-gamapass" onclick="document.getElementById('arquivo_csv').click();">
-            📤 Importar Senhas
-        </button>
-        
-        <input type="file" id="arquivo_csv" name="arquivo_csv" accept=".csv" style="display: none;" onchange="enviarFormularioAutomatico()">
+    <a href="{{ url_for('exportar_csv') }}" class="btn-gamapass">📥 Exportar Senhas</a>
+    <form id="formImportacao" action="{{ url_for('importar_csv') }}" method="POST" enctype="multipart/form-data" style="margin:0;width:100%;">
+        <button type="button" class="btn-gamapass" onclick="document.getElementById('arquivo_csv').click();">📤 Importar Senhas</button>
+        <input type="file" id="arquivo_csv" name="arquivo_csv" accept=".csv" style="display:none;" onchange="document.getElementById('formImportacao').submit()">
     </form>
-    
 </div>
 
-<!-- O pequeno script mágico -->
 <script>
-    function enviarFormularioAutomatico() {
-        // Pega o campo de arquivo para checar se o usuário realmente escolheu algo
-        const inputArquivo = document.getElementById('arquivo_csv');
-        
-        if (inputArquivo.files.length > 0) {
-            // Se tem arquivo, submete o formulário imediatamente
-            document.getElementById('formImportacao').submit();
-        }
+// ===================== DARK MODE =====================
+function toggleDarkMode() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (isDark) {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('gamapass_theme', 'light');
+        document.getElementById('dark-toggle').textContent = '🌙 Modo Escuro';
+    } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem('gamapass_theme', 'dark');
+        document.getElementById('dark-toggle').textContent = '☀️ Modo Claro';
     }
+}
+(function() {
+    const saved = localStorage.getItem('gamapass_theme');
+    if (saved === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        const btn = document.getElementById('dark-toggle');
+        if (btn) btn.textContent = '☀️ Modo Claro';
+    }
+})();
+
+// ===================== FORÇA DE SENHA =====================
+function checkStrength(val, barId, lblId) {
+    const bar = document.getElementById(barId);
+    const lbl = document.getElementById(lblId);
+    if (!bar || !lbl) return;
+    let score = 0;
+    if (val.length >= 8) score++;
+    if (val.length >= 12) score++;
+    if (/[A-Z]/.test(val)) score++;
+    if (/[0-9]/.test(val)) score++;
+    if (/[!@#$%*|&]/.test(val)) score++;
+    const levels = [
+        {pct:'20%', color:'#e53e3e', txt:'🔴 Muito Fraca'},
+        {pct:'40%', color:'#dd6b20', txt:'🟠 Fraca'},
+        {pct:'60%', color:'#d69e2e', txt:'🟡 Média'},
+        {pct:'80%', color:'#38a169', txt:'🟢 Forte'},
+        {pct:'100%', color:'#3182ce', txt:'🔵 Muito Forte'}
+    ];
+    const l = val.length === 0 ? null : levels[Math.max(0, Math.min(score-1, 4))];
+    bar.style.width = l ? l.pct : '0%';
+    bar.style.backgroundColor = l ? l.color : '';
+    lbl.textContent = l ? l.txt : '';
+}
+
+// ===================== ALERTA DUPLICATA =====================
+function checkDuplicate(val, alertId) {
+    const alert = document.getElementById(alertId);
+    if (!alert || !val) { if (alert) alert.style.display='none'; return; }
+    const dup = senhasSalvas.some(s => s === val);
+    alert.style.display = dup ? 'block' : 'none';
+}
+
+// ===================== GERAR SENHA =====================
+function gerarSenha(inputId, barId, lblId) {
+    const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%*';
+    let pass = '';
+    for (let i = 0; i < 12; i++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    // Garante pelo menos 1 de cada categoria
+    pass = pass.slice(0,9) + 'Aa1@';
+    const input = document.getElementById(inputId);
+    if (input) { input.value = pass; input.type = 'text'; }
+    checkStrength(pass, barId, lblId);
+}
+
+// ===================== COPIAR SENHA =====================
+function copiarSenha(senha, btn) {
+    navigator.clipboard.writeText(senha).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = '✅ Copiado!';
+        btn.style.backgroundColor = '#2b7a4b';
+        setTimeout(() => { btn.textContent = orig; btn.style.backgroundColor = '#4a5568'; }, 2000);
+    }).catch(() => {
+        // Fallback para navegadores antigos
+        const ta = document.createElement('textarea');
+        ta.value = senha; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+        btn.textContent = '✅ Copiado!';
+        setTimeout(() => btn.textContent = '📋 Copiar', 2000);
+    });
+}
+
+// ===================== HISTÓRICO =====================
+function verHistorico(passId, servico) {
+    const box = document.getElementById('hist-' + passId);
+    const content = document.getElementById('hist-content-' + passId);
+    box.style.display = 'block';
+    content.innerHTML = 'Carregando...';
+    fetch('/historico_senha/' + passId)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.length) {
+                content.innerHTML = '<em>Nenhum registro encontrado.</em>';
+                return;
+            }
+            let html = '<table style="width:100%; font-size:0.88em; border-collapse:collapse;">';
+            html += '<tr><th style="text-align:left; padding:4px 8px; background:#e2e8f0;">Ação</th><th style="text-align:left; padding:4px 8px; background:#e2e8f0;">Por</th><th style="text-align:left; padding:4px 8px; background:#e2e8f0;">Data/Hora</th></tr>';
+            data.forEach(h => {
+                const cores = {criada:'#c6f6d5', alterada:'#fefcbf', removida:'#fed7d7'};
+                html += `<tr style="background:${cores[h.acao]||'#fff'}"><td style="padding:4px 8px; text-transform:capitalize;"><strong>${h.acao}</strong></td><td style="padding:4px 8px;">${h.por}</td><td style="padding:4px 8px;">${h.data}</td></tr>`;
+            });
+            html += '</table>';
+            content.innerHTML = html;
+        })
+        .catch(() => { content.innerHTML = '<em style="color:red;">Erro ao carregar histórico.</em>'; });
+}
+function fecharHistorico(passId) {
+    document.getElementById('hist-' + passId).style.display = 'none';
+}
+
+// ===================== TOGGLE EDITAR =====================
+function toggleEditPass(passId) {
+    const view = document.getElementById('view-pass-' + passId);
+    const edit = document.getElementById('edit-pass-' + passId);
+    if (edit.style.display === 'none') { edit.style.display = 'block'; view.style.display = 'none'; }
+    else { edit.style.display = 'none'; view.style.display = 'flex'; }
+}
+
+// ===================== TOGGLE SENHA =====================
+function togglePassword(inputId, btn) {
+    var input = document.getElementById(inputId);
+    input.type = input.type === 'password' ? 'text' : 'password';
+    btn.textContent = input.type === 'password' ? '👁️' : '👁️‍🗨️';
+}
+
+// ===================== REVELAR TODAS =====================
+let areSecretsHidden = true;
+function toggleAllSecrets() {
+    const spans = document.querySelectorAll('.secret-text');
+    const btn = document.getElementById('toggleAllBtn');
+    areSecretsHidden = !areSecretsHidden;
+    spans.forEach(s => { s.textContent = areSecretsHidden ? '********' : s.getAttribute('data-secret'); });
+    btn.textContent = areSecretsHidden ? 'Revelar Senhas' : 'Esconder Senhas';
+    btn.style.backgroundColor = areSecretsHidden ? '#ccc' : '#ff4444';
+    btn.style.color = areSecretsHidden ? '#333' : '#fff';
+}
+
+// ===================== FILTRAR + CONTADOR =====================
+function filtrarSenhas() {
+    const termo = document.getElementById('barraPesquisa').value.toLowerCase();
+    const linhas = document.getElementsByClassName('linha-senha');
+    let count = 0;
+    for (let i = 0; i < linhas.length; i++) {
+        const l = linhas[i];
+        const s = (l.querySelector('.busca-servico')?.innerText || '').toLowerCase();
+        const u = (l.querySelector('.busca-url')?.innerText || '').toLowerCase();
+        const lg = (l.querySelector('.busca-login')?.innerText || '').toLowerCase();
+        const visible = s.includes(termo) || u.includes(termo) || lg.includes(termo);
+        l.style.display = visible ? 'flex' : 'none';
+        if (visible) count++;
+    }
+    const total = linhas.length;
+    const contador = document.getElementById('contador-resultado');
+    if (termo) {
+        contador.textContent = count + ' de ' + total + ' senha(s) encontrada(s)';
+    } else {
+        contador.textContent = total + ' senha(s) no cofre';
+    }
+}
+
+// ===================== ORDENAR =====================
+function ordenarSenhas() {
+    const lista = document.getElementById('lista-senhas');
+    const cards = Array.from(lista.querySelectorAll('.linha-senha'));
+    const modo = document.getElementById('ordenacao').value;
+    cards.sort((a, b) => {
+        if (modo === 'az') {
+            return (a.dataset.service || '').localeCompare(b.dataset.service || '', 'pt-BR');
+        } else {
+            return parseInt(b.dataset.created) - parseInt(a.dataset.created);
+        }
+    });
+    cards.forEach(c => lista.appendChild(c));
+}
+
+// ===================== ALTERAR IP =====================
+function toggleIpEdit() {
+    var box = document.getElementById('ip-edit-box');
+    if (box) box.style.display = (box.style.display === 'none' || box.style.display === '') ? 'block' : 'none';
+}
+
+// Inicializa contador
+window.addEventListener('DOMContentLoaded', () => filtrarSenhas());
 </script>
-
-<!-- NOVO: Script do Filtro de Pesquisa -->
-<script>
-    function filtrarSenhas() {
-        // Pega o que o usuário digitou e converte para minúsculo
-        let termo = document.getElementById('barraPesquisa').value.toLowerCase();
-        
-        // Pega todos os cards de senhas
-        let linhas = document.getElementsByClassName('linha-senha');
-
-        for (let i = 0; i < linhas.length; i++) {
-            let linha = linhas[i];
-            
-            // Pega o conteúdo exato das 3 tags que criamos
-            let servico = linha.querySelector('.busca-servico') ? linha.querySelector('.busca-servico').innerText.toLowerCase() : "";
-            let url = linha.querySelector('.busca-url') ? linha.querySelector('.busca-url').innerText.toLowerCase() : "";
-            let login = linha.querySelector('.busca-login') ? linha.querySelector('.busca-login').innerText.toLowerCase() : "";
-
-            // A Lógica de Prioridade
-            if (servico.includes(termo) || url.includes(termo) || login.includes(termo)) {
-                linha.style.display = "flex"; // Mostra o resultado (usamos flex para manter o formato do seu card)
-            } else {
-                linha.style.display = "none"; // Esconde os que não combinam
-        }
-    }
-
-    function toggleIpEdit() {
-        var box = document.getElementById('ip-edit-box');
-        if (box) {
-            box.style.display = (box.style.display === 'none' || box.style.display === '') ? 'block' : 'none';
-        }
-    }
-</script>
-
-
 {% endblock %}

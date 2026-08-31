@@ -9,7 +9,10 @@
             <h2 class="vw-font" style="color: darkred; margin: 0; text-align: left;">Administração GAMA</h2>
             <small style="color: #666;">Gestão de Acessos e Convites de Funcionários</small>
         </div>
-        <a href="{{ url_for('dashboard') }}" style="color: var(--navy-blue); font-weight: bold; text-decoration: none; border: 1px solid var(--navy-blue); padding: 8px 15px; border-radius: 4px;">Voltar ao Cofre</a>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <a href="{{ url_for('admin_auditoria') }}" style="background-color: #4a5568; color: white; font-weight: bold; text-decoration: none; padding: 8px 15px; border-radius: 4px; font-size: 0.9em;">📋 Log de Auditoria</a>
+            <a href="{{ url_for('dashboard') }}" style="color: var(--navy-blue); font-weight: bold; text-decoration: none; border: 1px solid var(--navy-blue); padding: 8px 15px; border-radius: 4px;">Voltar ao Cofre</a>
+        </div>
     </div>
 
     <!-- CADASTRO INDIVIDUAL COM CONVITE POR E-MAIL -->

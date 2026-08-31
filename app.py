@@ -16,6 +16,12 @@ from cryptography.fernet import Fernet
 
 app = Flask(__name__)
 
+# Filtro customizado Jinja2 para regex no template
+@app.template_filter('regex_search')
+def regex_search_filter(value, pattern):
+    """Retorna True se o padrão regex for encontrado no valor."""
+    return bool(re.search(pattern, str(value)))
+
 # ================= CONFIGURAÇÕES DINÂMICAS =================
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chave_de_sessao_fallback_local')
 
@@ -64,6 +70,29 @@ class SavedPassword(db.Model):
     service_url = db.Column(db.String(255), nullable=True)
     service_username = db.Column(db.String(100), nullable=False)
     encrypted_password = db.Column(db.LargeBinary, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class PasswordHistory(db.Model):
+    """Histórico de alterações de uma credencial salva."""
+    id = db.Column(db.Integer, primary_key=True)
+    saved_password_id = db.Column(db.Integer, nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    service_name = db.Column(db.String(100), nullable=False)
+    action = db.Column(db.String(50), nullable=False)  # 'criada', 'alterada', 'removida'
+    changed_by = db.Column(db.String(100), nullable=True)
+    changed_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class AuditLog(db.Model):
+    """Log de auditoria global do sistema."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, nullable=True)
+    username_at_time = db.Column(db.String(100), nullable=True)
+    action = db.Column(db.String(100), nullable=False)
+    details = db.Column(db.String(500), nullable=True)
+    ip_address = db.Column(db.String(50), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -79,6 +108,31 @@ def get_client_ip():
     else:
         ip = request.remote_addr or '127.0.0.1'
     return ip
+
+def registrar_auditoria(action, details=None):
+    """Registra um evento no log de auditoria do sistema."""
+    try:
+        from flask_login import current_user as cu
+        uid = cu.id if cu.is_authenticated else None
+        uname = cu.username if cu.is_authenticated else 'Sistema'
+        ip = get_client_ip()
+        log = AuditLog(
+            user_id=uid,
+            username_at_time=uname,
+            action=action,
+            details=details,
+            ip_address=ip
+        )
+        db.session.add(log)
+        db.session.commit()
+    except Exception as ex:
+        print(f"[AUDIT] Falha ao registrar log: {ex}", flush=True)
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
+
 
 
 import json
@@ -298,6 +352,7 @@ def login():
         user = User.query.filter_by(username=username).first()
         if user and check_password_hash(user.password_hash, password):
             login_user(user)
+            registrar_auditoria('LOGIN', f'Usuário {username} fez login com sucesso.')
             
             # Registra a data de acesso (mantém o IP interno da máquina intacto)
             hoje = datetime.now().strftime('%Y-%m-%d')
@@ -314,6 +369,7 @@ def login():
                 return redirect(url_for('first_setup'))
             return redirect(url_for('dashboard'))
         else:
+            registrar_auditoria('LOGIN_FALHA', f'Tentativa de login falhou para usuário: {username}.')
             flash('Credenciais inválidas. Verifique usuário e senha.', 'error')
     return render_template('login.html')
 
@@ -459,7 +515,19 @@ def dashboard():
             encrypted_password=encrypted_pw
         )
         db.session.add(new_entry)
+        db.session.flush()  # Para obter o ID gerado antes do commit
+
+        # Registra no histórico da credencial
+        hist = PasswordHistory(
+            saved_password_id=new_entry.id,
+            user_id=current_user.id,
+            service_name=service,
+            action='criada',
+            changed_by=current_user.username
+        )
+        db.session.add(hist)
         db.session.commit()
+        registrar_auditoria('SENHA_CRIADA', f'Credencial criada para o serviço "{service}" (usuário: {service_user}).')
         flash('Credencial salva com sucesso!', 'success')
         return redirect(url_for('dashboard'))
 
@@ -497,7 +565,17 @@ def editar_senha(pass_id):
         entry.encrypted_password = cipher_suite.encrypt(nova_senha.encode('utf-8'))
 
     try:
+        # Registra no histórico
+        hist = PasswordHistory(
+            saved_password_id=entry.id,
+            user_id=current_user.id,
+            service_name=entry.service_name,
+            action='alterada',
+            changed_by=current_user.username
+        )
+        db.session.add(hist)
         db.session.commit()
+        registrar_auditoria('SENHA_EDITADA', f'Credencial do serviço "{entry.service_name}" foi editada.')
         flash('Credencial atualizada com sucesso!', 'success')
     except Exception as e:
         db.session.rollback()
@@ -510,10 +588,22 @@ def editar_senha(pass_id):
 def delete_password(pass_id):
     entry = SavedPassword.query.get(pass_id)
     if entry and entry.user_id == current_user.id:
+        service_name = entry.service_name
+        # Registra remoção no histórico antes de apagar
+        hist = PasswordHistory(
+            saved_password_id=entry.id,
+            user_id=current_user.id,
+            service_name=service_name,
+            action='removida',
+            changed_by=current_user.username
+        )
+        db.session.add(hist)
         db.session.delete(entry)
         db.session.commit()
+        registrar_auditoria('SENHA_REMOVIDA', f'Credencial do serviço "{service_name}" foi removida.')
         flash('Credencial apagada permanentemente.', 'success')
     return redirect(url_for('dashboard'))
+
 
 # ================= IMPORTAÇÃO & EXPORTAÇÃO CSV =================
 @app.route('/importar-csv', methods=['POST'])
@@ -703,7 +793,8 @@ def admin_panel():
                     flash(f"Funcionário '{username}' cadastrado com sucesso! Porém o envio do e-mail falhou ({detalhe_erro}). Você pode clicar em '✉️ Reenviar Convite' na lista abaixo para tentar novamente. Senha provisória: {password}", 'warning')
             else:
                 flash(f"Funcionário '{username}' cadastrado com sucesso!", 'success')
-                
+            
+            registrar_auditoria('USUARIO_CRIADO', f'Novo usuário "{username}" ({full_email or "sem email"}) cadastrado pelo admin.')
             return redirect(url_for('admin_panel'))
             
         # CADASTRO EM MASSA
@@ -839,6 +930,7 @@ def editar_usuario(user_id):
 
     try:
         db.session.commit()
+        registrar_auditoria('USUARIO_EDITADO', f'Dados do usuário "{usuario.username}" atualizados pelo admin.')
         flash(f'Usuário {usuario.username} atualizado com sucesso!', 'success')
     except Exception as e:
         db.session.rollback()
@@ -857,11 +949,13 @@ def delete_user(user_id):
         return redirect(url_for('admin_panel'))
 
     usuario = User.query.get_or_404(user_id)
+    nome_usuario = usuario.username
     try:
         SavedPassword.query.filter_by(user_id=usuario.id).delete()
         db.session.delete(usuario)
         db.session.commit()
-        flash(f'Usuário {usuario.username} e suas senhas foram excluídos.', 'success')
+        registrar_auditoria('USUARIO_REMOVIDO', f'Usuário "{nome_usuario}" e suas senhas foram excluídos pelo admin.')
+        flash(f'Usuário {nome_usuario} e suas senhas foram excluídos.', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Erro ao excluir: {e}', 'error')
@@ -872,8 +966,84 @@ def delete_user(user_id):
 @app.route('/logout')
 @login_required
 def logout():
+    registrar_auditoria('LOGOUT', f'Usuário {current_user.username} encerrou a sessão.')
     logout_user()
     return redirect(url_for('login'))
+
+# ================= HISTÓRICO DE CREDENCIAL & AUDITORIA =================
+@app.route('/historico_senha/<int:pass_id>')
+@login_required
+def historico_senha(pass_id):
+    """Retorna o histórico de alterações de uma credencial em JSON."""
+    entry = SavedPassword.query.get_or_404(pass_id)
+    if entry.user_id != current_user.id and not current_user.is_admin:
+        return {'error': 'Acesso negado'}, 403
+    
+    historico = PasswordHistory.query.filter_by(
+        saved_password_id=pass_id
+    ).order_by(PasswordHistory.changed_at.desc()).limit(20).all()
+    
+    resultado = []
+    for h in historico:
+        resultado.append({
+            'acao': h.action,
+            'por': h.changed_by or 'Desconhecido',
+            'data': h.changed_at.strftime('%d/%m/%Y %H:%M') if h.changed_at else '-'
+        })
+    
+    import json as _json
+    from flask import Response as _Response
+    return _Response(_json.dumps(resultado, ensure_ascii=False), mimetype='application/json')
+
+@app.route('/admin/auditoria')
+@login_required
+def admin_auditoria():
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    filtro_usuario = request.args.get('usuario', '').strip()
+    filtro_acao = request.args.get('acao', '').strip()
+    
+    query = AuditLog.query
+    if filtro_usuario:
+        query = query.filter(AuditLog.username_at_time.ilike(f'%{filtro_usuario}%'))
+    if filtro_acao:
+        query = query.filter(AuditLog.action == filtro_acao)
+    
+    logs = query.order_by(AuditLog.created_at.desc()).limit(500).all()
+    usuarios = db.session.query(AuditLog.username_at_time).distinct().all()
+    acoes_distintas = db.session.query(AuditLog.action).distinct().all()
+    
+    return render_template('auditoria.html',
+        logs=logs,
+        filtro_usuario=filtro_usuario,
+        filtro_acao=filtro_acao,
+        usuarios=[u[0] for u in usuarios if u[0]],
+        acoes=[a[0] for a in acoes_distintas if a[0]]
+    )
+
+@app.route('/admin/exportar_auditoria')
+@login_required
+def exportar_auditoria():
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    logs = AuditLog.query.order_by(AuditLog.created_at.desc()).all()
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=';')
+    writer.writerow(['Data/Hora', 'Usuário', 'Ação', 'Detalhes', 'IP'])
+    for log in logs:
+        writer.writerow([
+            log.created_at.strftime('%d/%m/%Y %H:%M:%S') if log.created_at else '',
+            log.username_at_time or '',
+            log.action or '',
+            log.details or '',
+            log.ip_address or ''
+        ])
+    
+    resposta = Response(output.getvalue().encode('utf-8-sig'), mimetype='text/csv')
+    resposta.headers["Content-Disposition"] = "attachment; filename=gamapass_auditoria.csv"
+    return resposta
 
 # ================= INICIALIZAÇÃO DO BANCO E MIGRAÇÃO AUTOMÁTICA =================
 def inicializar_banco():
@@ -913,6 +1083,20 @@ def inicializar_banco():
                                 conn.execute(text(f"ALTER TABLE {table_ref} ADD COLUMN {col_name} {col_type}"))
                         except Exception as ex:
                             print(f"[MIGRATION EXCEPTION] Coluna {col_name}: {ex}")
+
+            # Migração: coluna created_at em saved_password
+            if 'saved_password' in tables:
+                sp_cols = [c['name'] for c in inspector.get_columns('saved_password')]
+                is_postgres = 'postgres' in db.engine.url.drivername or 'postgresql' in str(db.engine.url)
+                sp_ref = '"saved_password"' if is_postgres else 'saved_password'
+                if 'created_at' not in sp_cols:
+                    try:
+                        with db.engine.begin() as conn:
+                            print("[MIGRATION] Adicionando coluna created_at em saved_password...")
+                            conn.execute(text(f"ALTER TABLE {sp_ref} ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+                    except Exception as ex:
+                        print(f"[MIGRATION EXCEPTION] saved_password.created_at: {ex}")
+
                             
             # Se não houver nenhum usuário cadastrado no banco, cria o primeiro Admin
             if not User.query.first():

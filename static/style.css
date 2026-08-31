@@ -4,7 +4,40 @@
     --navy-blue: #001f3f;
     --navy-blue-hover: #003366;
     --text-dark: #333333;
+    --card-bg: #ffffff;
+    --card-border: #e2e8f0;
+    --input-border: #ccc;
+    --input-bg: #ffffff;
+    --container-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
+
+/* ================= DARK MODE ================= */
+[data-theme="dark"] {
+    --primary-white: #1a202c;
+    --background-light: #171923;
+    --navy-blue: #63b3ed;
+    --navy-blue-hover: #90cdf4;
+    --text-dark: #e2e8f0;
+    --card-bg: #2d3748;
+    --card-border: #4a5568;
+    --input-border: #4a5568;
+    --input-bg: #2d3748;
+    --container-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+[data-theme="dark"] body { background-color: var(--background-light); color: var(--text-dark); }
+[data-theme="dark"] .container { background-color: var(--primary-white); color: var(--text-dark); box-shadow: var(--container-shadow); }
+[data-theme="dark"] .password-card { background-color: var(--card-bg); border-color: var(--navy-blue); }
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="email"],
+[data-theme="dark"] input[type="password"],
+[data-theme="dark"] select { background-color: var(--input-bg); color: var(--text-dark); border-color: var(--input-border); }
+[data-theme="dark"] .flash-error { background-color: #742a2a; color: #fed7d7; }
+[data-theme="dark"] .flash-success { background-color: #22543d; color: #c6f6d5; }
+[data-theme="dark"] h2, [data-theme="dark"] h3, [data-theme="dark"] h4, [data-theme="dark"] label { color: var(--navy-blue); }
+[data-theme="dark"] .btn-secondary { background-color: #4a5568; color: #e2e8f0; }
+[data-theme="dark"] a { color: var(--navy-blue); }
+[data-theme="dark"] small, [data-theme="dark"] span { color: inherit; }
+
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
