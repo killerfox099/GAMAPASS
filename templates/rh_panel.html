@@ -20,7 +20,7 @@
     <!-- Novo Aviso -->
     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
         <h4 style="margin: 0 0 15px 0; color: var(--navy-blue); font-size: 1.1em;">📢 Publicar Novo Aviso</h4>
-        <form method="POST" action="{{ url_for('rh_novo_aviso') }}">
+        <form method="POST" action="{{ url_for('rh_novo_aviso') }}" enctype="multipart/form-data">
             <div style="margin-bottom: 15px;">
                 <label style="display: block; font-size: 0.9em; font-weight: bold; color: var(--navy-blue); margin-bottom: 5px;">Título do Aviso</label>
                 <input type="text" name="titulo" placeholder="Ex: Campanha de Vacinação, Feriado..." required style="width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #ccc;">
@@ -30,8 +30,12 @@
                 <textarea name="conteudo" rows="4" placeholder="Escreva a mensagem aqui..." required style="width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit;"></textarea>
             </div>
             <div style="margin-bottom: 15px;">
-                <label style="display: block; font-size: 0.9em; font-weight: bold; color: var(--navy-blue); margin-bottom: 5px;">Link da Circular (Opcional)</label>
+                <label style="display: block; font-size: 0.9em; font-weight: bold; color: var(--navy-blue); margin-bottom: 5px;">Link Externo da Circular (Drive, Opcional)</label>
                 <input type="url" name="document_link" placeholder="Ex: https://drive.google.com/file/d/.../view" style="width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #ccc;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; font-size: 0.9em; font-weight: bold; color: var(--navy-blue); margin-bottom: 5px;">Upload de Arquivos Diretamente (Imagens, PDFs, etc.)</label>
+                <input type="file" name="arquivos" multiple style="width: 100%; padding: 10px; border-radius: 4px; border: 1px dashed #ccc; background: #fff;">
             </div>
             <button type="submit" style="background-color: #2b7a4b; color: white; padding: 10px 20px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer;">Publicar no Mural</button>
         </form>
@@ -51,9 +55,15 @@
                 <h4 style="margin: 0 0 10px 0; color: #2d3748; padding-right: 80px;">{{ aviso.title }}</h4>
                 <p style="margin: 0 0 10px 0; font-size: 0.95em; color: #4a5568; white-space: pre-wrap;">{{ aviso.content }}</p>
                 
-                {% if aviso.document_link %}
+                {% if aviso.document_link or aviso.files %}
                     <div style="margin-bottom: 10px; font-size: 0.85em; background: #ebf8fa; padding: 8px; border-radius: 4px; border: 1px solid #90cdf4;">
-                        <strong>🔗 Documento Anexado:</strong> <a href="{{ aviso.document_link }}" target="_blank" style="color: #3182ce;">{{ aviso.document_link }}</a>
+                        {% if aviso.document_link %}
+                            <div style="margin-bottom: 5px;"><strong>🔗 Drive:</strong> <a href="{{ aviso.document_link }}" target="_blank" style="color: #3182ce;">{{ aviso.document_link }}</a></div>
+                        {% endif %}
+                        {% for arquivo in aviso.files %}
+                            <div style="margin-bottom: 5px;"><strong>📄 Arquivo:</strong> {{ arquivo.filename }}</div>
+                        {% endfor %}
+                        
                         <div style="margin-top: 5px; color: #2c5282;">
                             <strong>👁️ Visualizações:</strong> {{ aviso.views|length }} usuário(s) abriram
                             {% if aviso.views %}

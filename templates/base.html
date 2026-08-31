@@ -10,16 +10,69 @@
         #caps-lock-warning { display: none; position: fixed; background-color: #ffaa00; color: #000; padding: 6px 12px; border-radius: 4px; font-size: 0.85em; font-weight: bold; box-shadow: 0 4px 8px rgba(0,0,0,0.2); pointer-events: none; z-index: 9999; }
         #caps-lock-warning::before { content: '⚠️ Caps Lock Ligado!'; }
     </style>
+    <script>
+        if (localStorage.getItem('gamapass_theme') === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        }
+    </script>
 </head>
 <!-- FORÇAMOS O BODY A SE COMPORTAR COMO UMA COLUNA VERTICAL CORRETA -->
 <body class="{% block body_class %}{% endblock %}" style="display: flex; flex-direction: column; min-height: 100vh; width: 100%; align-items: center; justify-content: flex-start; margin: 0; padding: 0;">
 
     <div id="caps-lock-warning"></div>
 
-    <!-- Imagem flutuante apenas no Dashboard e Admin -->
-    {% if request.endpoint in ['dashboard', 'admin_panel'] %}
+    <!-- Imagem flutuante apenas no Dashboard e Admin e RH -->
+    {% if request.endpoint in ['dashboard', 'admin_panel', 'rh_panel'] %}
         <img src="{{ url_for('static', filename='gama_dash_up.jfif') }}" alt="GAMA" style="position: fixed; top: 20px; right: 20px; width: 120px; z-index: 1000; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
     {% endif %}
+
+    <!-- Global Top Left Menu -->
+    <div style="position: fixed; top: 20px; left: 20px; z-index: 1000; display: flex; gap: 10px; align-items: flex-start;">
+        <!-- Dark Mode Toggle Global -->
+        <button type="button" id="global-dark-toggle" onclick="toggleGlobalDarkMode()" title="Alternar Modo Escuro"
+            style="padding: 8px 12px; font-size: 0.9em; background-color: #4a5568; color: white; border: none; border-radius: 20px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+            🌙
+        </button>
+
+        <!-- Notificações Dropdown Global -->
+        {% if current_user.is_authenticated %}
+        <div style="position: relative;">
+            <button type="button" id="global-bell-btn" title="Notificações e Avisos" onclick="toggleGlobalNotificacoes()"
+                style="padding: 8px 12px; font-size: 0.9em; background-color: #f6e05e; color: #744210; border-radius: 20px; font-weight: bold; display: flex; align-items: center; gap: 5px; border: none; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                🔔 
+                {% if global_avisos_nao_lidos %}
+                    <span id="global-badge-notificacoes" style="background-color: #e53e3e; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.8em; line-height: 1;">{{ global_avisos_nao_lidos|length }}</span>
+                {% endif %}
+            </button>
+            
+            <div id="global-mural-dropdown" style="display: none; position: absolute; left: 0; top: 110%; width: 350px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1001; overflow: hidden; text-align: left;">
+                <div style="background: #fff8e1; border-bottom: 1px solid #f6e05e; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center;">
+                    <h4 style="margin: 0; color: #b7791f; display: flex; align-items: center; gap: 8px; font-family: inherit;">
+                        <span>📌</span> Mural de Avisos
+                    </h4>
+                    <button onclick="toggleGlobalNotificacoes()" style="background: none; border: none; font-size: 1.2em; color: #a0aec0; cursor: pointer;">&times;</button>
+                </div>
+                <div style="max-height: 350px; overflow-y: auto; padding: 15px; background: #fafafa;">
+                    {% if global_avisos %}
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            {% for aviso in global_avisos %}
+                            <div style="background: white; border-left: 4px solid #ecc94b; padding: 10px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                                <h5 style="margin: 0 0 5px 0; color: #744210; font-size: 0.95em; font-family: inherit;">{{ aviso.title }}
+                                    {% if aviso in global_avisos_nao_lidos %}<span class="global-nova-flag" style="color: #e53e3e; font-size: 0.75em; margin-left: 5px; font-weight: bold;">(NOVO)</span>{% endif %}
+                                </h5>
+                                <p style="margin: 0; font-size: 0.85em; color: #555; white-space: pre-wrap; font-family: inherit;">{{ aviso.content }}</p>
+                                <div style="font-size: 0.7em; color: #a0aec0; margin-top: 5px; text-align: right;">{{ aviso.created_at.strftime('%d/%m %H:%M') }}</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p style="color: #718096; font-size: 0.9em; margin: 0; text-align: center; font-style: italic;">Nenhum aviso no momento.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
 
     <div class="main-content" style="{% block main_style %}{% endblock %} width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; box-sizing: border-box; padding-bottom: 60px; padding-top: 40px;">
         <div style="position: absolute; top: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 1000;">
@@ -64,6 +117,48 @@
         document.addEventListener('mousedown', updateCapsState);
         document.addEventListener('focusin', showWarningIfInput);
         document.addEventListener('focusout', function() { capsWarning.style.display = 'none'; });
+
+        // Global Notificacoes
+        function toggleGlobalNotificacoes() {
+            const dropdown = document.getElementById('global-mural-dropdown');
+            const badge = document.getElementById('global-badge-notificacoes');
+            const flags = document.querySelectorAll('.global-nova-flag');
+            
+            if (dropdown.style.display === 'none' || dropdown.style.display === '') {
+                dropdown.style.display = 'block';
+                if (badge) {
+                    fetch("{{ url_for('marcar_avisos_lidos') }}", { method: 'POST' })
+                        .then(r => {
+                            if (r.ok) {
+                                badge.style.display = 'none';
+                                setTimeout(() => { flags.forEach(f => f.style.display = 'none'); }, 3000);
+                            }
+                        });
+                }
+            } else {
+                dropdown.style.display = 'none';
+            }
+        }
+        
+        document.addEventListener('click', function(event) {
+            const dropdown = document.getElementById('global-mural-dropdown');
+            const btn = document.getElementById('global-bell-btn');
+            if (dropdown && dropdown.style.display === 'block' && !dropdown.contains(event.target) && !btn.contains(event.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+
+        // Global Dark Mode
+        function toggleGlobalDarkMode() {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            if (isDark) {
+                document.documentElement.removeAttribute('data-theme');
+                localStorage.setItem('gamapass_theme', 'light');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                localStorage.setItem('gamapass_theme', 'dark');
+            }
+        }
     </script>
 </body>
 </html>

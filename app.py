@@ -8,7 +8,7 @@ import random
 import string
 from datetime import datetime
 from email.mime.text import MIMEText
-from flask import Flask, Response, render_template, redirect, url_for, request, flash
+from flask import Flask, Response, render_template, redirect, url_for, request, flash, send_file
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -75,6 +75,13 @@ class Announcement(db.Model):
     
     author = db.relationship('User', backref='announcements')
     views = db.relationship('AnnouncementView', backref='announcement', cascade='all, delete-orphan')
+    files = db.relationship('AnnouncementFile', backref='announcement', cascade='all, delete-orphan')
+
+class AnnouncementFile(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    announcement_id = db.Column(db.Integer, db.ForeignKey('announcement.id'), nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    file_data = db.Column(db.LargeBinary, nullable=False)
 
 class AnnouncementView(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -129,6 +136,23 @@ def get_client_ip():
     else:
         ip = request.remote_addr or '127.0.0.1'
     return ip
+
+@app.before_request
+def update_user_ip():
+    if current_user.is_authenticated:
+        ip = get_client_ip()
+        if current_user.machine_ip != ip:
+            current_user.machine_ip = ip
+            db.session.commit()
+
+@app.context_processor
+def inject_avisos():
+    if current_user.is_authenticated:
+        avisos = Announcement.query.order_by(Announcement.created_at.desc()).all()
+        last_view = current_user.last_announcement_view or datetime.min
+        nao_lidos = [a for a in avisos if a.created_at > last_view]
+        return dict(global_avisos=avisos, global_avisos_nao_lidos=nao_lidos)
+    return dict(global_avisos=[], global_avisos_nao_lidos=[])
 
 def registrar_auditoria(action, details=None):
     """Registra um evento no log de auditoria do sistema."""
@@ -452,28 +476,9 @@ def first_setup():
         
     form_data = {
         'display_name': current_user.display_name or '',
-        'email': current_user.email or '',
-        'machine_ip': current_user.machine_ip or ''
+        'email': current_user.email or ''
     }
     return render_template('first_setup.html', form_data=form_data)
-
-@app.route('/atualizar_meu_ip', methods=['POST'])
-@login_required
-def atualizar_meu_ip():
-    novo_ip = request.form.get('machine_ip', '').strip()
-    if novo_ip:
-        current_user.machine_ip = novo_ip
-        try:
-            db.session.commit()
-            flash(f'IP da máquina atualizado com sucesso para: {novo_ip}', 'success')
-        except Exception as e:
-            db.session.rollback()
-            flash(f'Erro ao salvar IP: {e}', 'error')
-    else:
-        flash('Por favor, informe o endereço IP fixo da sua máquina.', 'warning')
-        
-    return redirect(url_for('dashboard'))
-
 
 @app.route('/redefinir-senha', methods=['GET', 'POST'])
 @login_required
@@ -1104,6 +1109,18 @@ def rh_novo_aviso():
         aviso = Announcement(title=titulo, content=conteudo, document_link=document_link, author_id=current_user.id)
         db.session.add(aviso)
         db.session.commit()
+        
+        arquivos = request.files.getlist('arquivos')
+        for arquivo in arquivos:
+            if arquivo and arquivo.filename:
+                file_data = arquivo.read()
+                novo_arq = AnnouncementFile(
+                    announcement_id=aviso.id,
+                    filename=arquivo.filename,
+                    file_data=file_data
+                )
+                db.session.add(novo_arq)
+        db.session.commit()
         registrar_auditoria('AVISO_CRIADO', f'O RH/Admin "{current_user.username}" publicou um novo aviso: "{titulo}".')
         flash('Aviso publicado com sucesso!', 'success')
     else:
@@ -1146,6 +1163,14 @@ def registrar_leitura(aviso_id):
         existente.viewed_at = datetime.utcnow()
         db.session.commit()
     return {'status': 'ok'}
+
+@app.route('/aviso/arquivo/<int:file_id>')
+@login_required
+def baixar_arquivo_aviso(file_id):
+    arq = AnnouncementFile.query.get_or_404(file_id)
+    # Registrar leitura do aviso ao qual o arquivo pertence
+    registrar_leitura(arq.announcement_id)
+    return send_file(io.BytesIO(arq.file_data), download_name=arq.filename, as_attachment=False)
 
 # ================= INICIALIZAÇÃO DO BANCO E MIGRAÇÃO AUTOMÁTICA =================
 def inicializar_banco():
