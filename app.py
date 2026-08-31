@@ -557,8 +557,13 @@ def dashboard():
         })
         
     avisos = Announcement.query.order_by(Announcement.created_at.desc()).all()
+    
+    # Avisos recentes (últimos 3 dias) para notificação
+    from datetime import datetime, timedelta
+    tres_dias_atras = datetime.utcnow() - timedelta(days=3)
+    avisos_recentes = [a for a in avisos if a.created_at >= tres_dias_atras]
         
-    return render_template('dashboard.html', entries=decrypted_entries, avisos=avisos)
+    return render_template('dashboard.html', entries=decrypted_entries, avisos=avisos, avisos_recentes=avisos_recentes)
 
 @app.route('/editar_senha/<int:pass_id>', methods=['POST'])
 @login_required
@@ -1192,6 +1197,10 @@ def internal_server_error(e):
 def page_not_found(e):
     return redirect(url_for('dashboard' if current_user.is_authenticated else 'login'))
 
+# Inicializa o banco (Roda no gunicorn durante o import)
+with app.app_context():
+    inicializar_banco()
+
 if __name__ == '__main__':
     porta = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=porta)
+    app.run(host='0.0.0.0', port=porta, debug=False)

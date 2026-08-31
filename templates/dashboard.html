@@ -17,6 +17,17 @@
             </div>
         </div>
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <!-- Notificações -->
+            <button type="button" title="Mural de Avisos" onclick="document.getElementById('mural-avisos').scrollIntoView({behavior: 'smooth'})"
+                style="width: auto; padding: 7px 14px; font-size: 0.9em; background-color: #f6e05e; color: #744210; border-radius: 20px; font-weight: bold; display: flex; align-items: center; gap: 5px;">
+                🔔 
+                {% if avisos_recentes %}
+                    <span style="background-color: #e53e3e; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.8em; line-height: 1;">{{ avisos_recentes|length }}</span>
+                {% else %}
+                    0
+                {% endif %}
+            </button>
+            
             <!-- Dark Mode Toggle -->
             <button type="button" id="dark-toggle" onclick="toggleDarkMode()" title="Alternar Modo Escuro"
                 style="width: auto; padding: 7px 14px; font-size: 0.9em; background-color: #4a5568; border-radius: 20px;">
@@ -32,18 +43,20 @@
         </div>
     </div>
 
-    <!-- MURAL DE AVISOS E DRIVE (Apenas se tiver avisos ou para mostrar o drive) -->
-    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 25px;">
+    <!-- MURAL DE AVISOS E DRIVE -->
+    <div id="mural-avisos" style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 25px;">
         <!-- Quadro de Avisos -->
         <div style="flex: 2 1 400px; background: #fff8e1; border: 1px solid #f6e05e; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
             <h3 style="margin: 0 0 15px 0; color: #b7791f; display: flex; align-items: center; gap: 8px;">
                 <span>📌</span> Mural de Avisos
             </h3>
             {% if avisos %}
-                <div style="display: flex; flex-direction: column; gap: 12px; max-height: 200px; overflow-y: auto; padding-right: 5px;">
+                <div style="display: flex; flex-direction: column; gap: 12px; max-height: 250px; overflow-y: auto; padding-right: 5px;">
                     {% for aviso in avisos %}
-                    <div style="background: white; border-left: 4px solid #ecc94b; padding: 10px; border-radius: 4px;">
-                        <h5 style="margin: 0 0 5px 0; color: #744210; font-size: 0.95em;">{{ aviso.title }}</h5>
+                    <div style="background: white; border-left: 4px solid #ecc94b; padding: 10px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <h5 style="margin: 0 0 5px 0; color: #744210; font-size: 0.95em;">{{ aviso.title }}
+                            {% if aviso in avisos_recentes %}<span style="color: #e53e3e; font-size: 0.75em; margin-left: 5px; font-weight: bold;">(NOVO)</span>{% endif %}
+                        </h5>
                         <p style="margin: 0; font-size: 0.85em; color: #555; white-space: pre-wrap;">{{ aviso.content }}</p>
                         <div style="font-size: 0.7em; color: #a0aec0; margin-top: 5px; text-align: right;">{{ aviso.created_at.strftime('%d/%m %H:%M') }}</div>
                     </div>
@@ -54,14 +67,17 @@
             {% endif %}
         </div>
 
-        <!-- Google Drive Circulares Placeholder -->
-        <div style="flex: 1 1 200px; background: #ebf8fa; border: 1px solid #90cdf4; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
-            <h4 style="margin: 0 0 10px 0; color: #2b6cb0;">📁 Circulares (Drive)</h4>
-            <p style="font-size: 0.85em; color: #4a5568; margin-bottom: 15px;">Acesse os documentos e circulares do RH.</p>
-            <div style="background: #e2e8f0; border: 1px dashed #a0aec0; padding: 15px; border-radius: 4px; width: 100%; font-size: 0.8em; color: #718096;">
-                <em>Aguardando link do Drive...</em><br>
-                (O Drive aparecerá aqui)
+        <!-- Google Drive Circulares -->
+        <div style="flex: 1 1 300px; background: #ebf8fa; border: 1px solid #90cdf4; border-radius: 8px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: flex; flex-direction: column;">
+            <h4 style="margin: 0 0 10px 0; color: #2b6cb0;">📁 Arquivos do RH</h4>
+            <p style="font-size: 0.8em; color: #4a5568; margin-bottom: 10px;">Clique em um documento para abri-lo na mesma tela (visualização).</p>
+            
+            <div style="flex: 1; border-radius: 4px; overflow: hidden; border: 1px solid #cbd5e0; background: white; min-height: 200px;">
+                <!-- Link do drive formatado para visualização embutida -->
+                <iframe src="https://drive.google.com/embeddedfolderview?id=1tKzk1_KFrYN_9R05SNt3yuOXXnnYCWye#list" width="100%" height="100%" style="min-height: 220px;" frameborder="0"></iframe>
             </div>
+            
+            <a href="https://drive.google.com/drive/folders/1tKzk1_KFrYN_9R05SNt3yuOXXnnYCWye" target="_blank" style="margin-top: 10px; font-size: 0.8em; color: var(--navy-blue); text-align: center; text-decoration: underline;">Abrir Drive em nova aba</a>
         </div>
     </div>
 
