@@ -48,36 +48,66 @@
         <div style="display: flex; flex-direction: column; gap: 15px;">
         {% for aviso in avisos %}
             <div style="background-color: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 15px; position: relative;">
-                <form method="POST" action="{{ url_for('rh_deletar_aviso', aviso_id=aviso.id) }}" onsubmit="return confirm('Deseja mesmo remover este aviso do mural de todos?');" style="position: absolute; top: 15px; right: 15px; margin: 0;">
+                <form method="POST" action="{{ url_for('rh_deletar_aviso', aviso_id=aviso.id) }}" onsubmit="return confirm('Deseja mesmo remover este aviso do mural de todos?');" style="position: absolute; top: 15px; right: 15px; margin: 0; display: flex; gap: 5px;">
+                    <button type="button" onclick="toggleEditAviso('{{ aviso.id }}')" style="padding: 5px 10px; font-size: 0.8em; border-radius: 3px; background: #ecc94b; border: none; cursor: pointer; color: #744210; font-weight: bold;">✏️ Editar</button>
                     <button type="submit" class="btn-danger" style="padding: 5px 10px; font-size: 0.8em; border-radius: 3px;">🗑️ Excluir</button>
                 </form>
                 
-                <h4 style="margin: 0 0 10px 0; color: #2d3748; padding-right: 80px;">{{ aviso.title }}</h4>
-                <p style="margin: 0 0 10px 0; font-size: 0.95em; color: #4a5568; white-space: pre-wrap;">{{ aviso.content }}</p>
-                
-                {% if aviso.document_link or aviso.files %}
-                    <div style="margin-bottom: 10px; font-size: 0.85em; background: #ebf8fa; padding: 8px; border-radius: 4px; border: 1px solid #90cdf4;">
-                        {% if aviso.document_link %}
-                            <div style="margin-bottom: 5px;"><strong>🔗 Drive:</strong> <a href="{{ aviso.document_link }}" target="_blank" style="color: #3182ce;">{{ aviso.document_link }}</a></div>
-                        {% endif %}
-                        {% for arquivo in aviso.files %}
-                            <div style="margin-bottom: 5px;"><strong>📄 Arquivo:</strong> {{ arquivo.filename }}</div>
-                        {% endfor %}
-                        
-                        <div style="margin-top: 5px; color: #2c5282;">
-                            <strong>👁️ Visualizações:</strong> {{ aviso.views|length }} usuário(s) abriram
-                            {% if aviso.views %}
-                                <ul style="margin: 5px 0 0 0; padding-left: 20px; font-size: 0.9em; max-height: 100px; overflow-y: auto;">
-                                {% for view in aviso.views %}
-                                    <li>{{ view.user.display_name or view.user.username }} - <em>{{ view.viewed_at.strftime('%d/%m às %H:%M') }}</em></li>
-                                {% endfor %}
-                                </ul>
+                <!-- View Mode -->
+                <div id="view-aviso-{{ aviso.id }}">
+                    <h4 style="margin: 0 0 10px 0; color: #2d3748; padding-right: 150px;">{{ aviso.title }}</h4>
+                    <p style="margin: 0 0 10px 0; font-size: 0.95em; color: #4a5568; white-space: pre-wrap;">{{ aviso.content }}</p>
+                    
+                    {% if aviso.document_link or aviso.files %}
+                        <div style="margin-bottom: 10px; font-size: 0.85em; background: #ebf8fa; padding: 8px; border-radius: 4px; border: 1px solid #90cdf4;">
+                            {% if aviso.document_link %}
+                                <div style="margin-bottom: 5px;"><strong>🔗 Drive:</strong> <a href="{{ aviso.document_link }}" target="_blank" style="color: #3182ce;">{{ aviso.document_link }}</a></div>
                             {% endif %}
+                            {% for arquivo in aviso.files %}
+                                <div style="margin-bottom: 5px;"><strong>📄 Arquivo:</strong> {{ arquivo.filename }}</div>
+                            {% endfor %}
+                            
+                            <div style="margin-top: 5px; color: #2c5282;">
+                                <strong>👁️ Visualizações:</strong> {{ aviso.views|length }} usuário(s) abriram
+                                {% if aviso.views %}
+                                    <ul style="margin: 5px 0 0 0; padding-left: 20px; font-size: 0.9em; max-height: 100px; overflow-y: auto;">
+                                    {% for view in aviso.views %}
+                                        <li>{{ view.user.display_name or view.user.username }} - <em>{{ view.viewed_at.strftime('%d/%m às %H:%M') }}</em></li>
+                                    {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
                         </div>
-                    </div>
-                {% endif %}
+                    {% endif %}
 
-                <small style="color: #a0aec0; font-size: 0.8em;">Publicado em: {{ aviso.created_at.strftime('%d/%m/%Y às %H:%M') if aviso.created_at else '-' }} por {{ aviso.author.display_name or aviso.author.username if aviso.author else 'Sistema' }}</small>
+                    <small style="color: #a0aec0; font-size: 0.8em;">Publicado em: {{ aviso.created_at.strftime('%d/%m/%Y às %H:%M') if aviso.created_at else '-' }} por {{ aviso.author.display_name or aviso.author.username if aviso.author else 'Sistema' }}</small>
+                </div>
+
+                <!-- Edit Mode -->
+                <div id="edit-aviso-{{ aviso.id }}" style="display: none; background-color: #edf2f7; padding: 15px; border-radius: 6px; margin-top: 10px;">
+                    <form method="POST" action="{{ url_for('rh_editar_aviso', aviso_id=aviso.id) }}" enctype="multipart/form-data">
+                        <div style="margin-bottom: 10px;">
+                            <label style="display: block; font-size: 0.85em; font-weight: bold; color: var(--navy-blue);">Título</label>
+                            <input type="text" name="titulo" value="{{ aviso.title }}" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <label style="display: block; font-size: 0.85em; font-weight: bold; color: var(--navy-blue);">Conteúdo</label>
+                            <textarea name="conteudo" rows="3" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit;">{{ aviso.content }}</textarea>
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <label style="display: block; font-size: 0.85em; font-weight: bold; color: var(--navy-blue);">Link Externo da Circular (Opcional)</label>
+                            <input type="url" name="document_link" value="{{ aviso.document_link or '' }}" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <label style="display: block; font-size: 0.85em; font-weight: bold; color: var(--navy-blue);">Novos Arquivos (substituirão os atuais)</label>
+                            <input type="file" name="arquivos" multiple style="width: 100%; padding: 8px; border-radius: 4px; background: #fff; border: 1px solid #ccc;">
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button type="submit" style="background-color: var(--navy-blue); color: white; padding: 8px 15px; border-radius: 4px; border: none; cursor: pointer; font-size: 0.9em;">💾 Salvar</button>
+                            <button type="button" onclick="toggleEditAviso('{{ aviso.id }}')" style="background-color: #a0aec0; color: white; padding: 8px 15px; border-radius: 4px; border: none; cursor: pointer; font-size: 0.9em;">Cancelar</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         {% endfor %}
         </div>
@@ -87,4 +117,17 @@
         </div>
     {% endif %}
 </div>
+<script>
+function toggleEditAviso(id) {
+    const view = document.getElementById('view-aviso-' + id);
+    const edit = document.getElementById('edit-aviso-' + id);
+    if (edit.style.display === 'none') {
+        edit.style.display = 'block';
+        view.style.display = 'none';
+    } else {
+        edit.style.display = 'none';
+        view.style.display = 'block';
+    }
+}
+</script>
 {% endblock %}

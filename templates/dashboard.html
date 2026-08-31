@@ -35,24 +35,24 @@
             <p style="font-size: 0.8em; color: #4a5568; margin-bottom: 10px;">Clique em um documento para visualizá-lo em tela cheia.</p>
             
             <div style="flex: 1; border-radius: 4px; overflow-y: auto; border: 1px solid #cbd5e0; background: white; min-height: 200px; max-height: 250px; padding: 5px;">
-                {% set has_docs = false %}
+                {% set ns = namespace(has_docs=false) %}
                 {% for aviso in global_avisos %}
                     {% if aviso.document_link %}
-                        {% set has_docs = true %}
+                        {% set ns.has_docs = true %}
                         <div style="padding: 8px; border-bottom: 1px solid #edf2f7; display: flex; align-items: center; gap: 8px;">
                             <span>🔗</span>
                             <a href="#" onclick="openDocumentModal('{{ aviso.document_link }}', '{{ aviso.id }}'); return false;" style="color: #3182ce; text-decoration: none; font-size: 0.9em; flex: 1;">{{ aviso.title }} (Drive Externo)</a>
                         </div>
                     {% endif %}
                     {% for arquivo in aviso.files %}
-                        {% set has_docs = true %}
+                        {% set ns.has_docs = true %}
                         <div style="padding: 8px; border-bottom: 1px solid #edf2f7; display: flex; align-items: center; gap: 8px;">
                             <span>📄</span>
                             <a href="#" onclick="openDocumentModal('{{ url_for('baixar_arquivo_aviso', file_id=arquivo.id) }}', '{{ aviso.id }}'); return false;" style="color: #3182ce; text-decoration: none; font-size: 0.9em; flex: 1;">{{ arquivo.filename }} (Upload: {{ aviso.title }})</a>
                         </div>
                     {% endfor %}
                 {% endfor %}
-                {% if not has_docs %}
+                {% if not ns.has_docs %}
                     <p style="color: #a0aec0; font-size: 0.85em; text-align: center; margin-top: 30px; font-style: italic;">Nenhum documento anexado ainda.</p>
                 {% endif %}
             </div>

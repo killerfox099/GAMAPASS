@@ -46,6 +46,13 @@ chave_padrao = 'dCyX0U3oHIROiltcaOR1PwkWry4yhMSLmQve55uDtsA='
 ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY', chave_padrao).strip().encode('utf-8')
 cipher_suite = Fernet(ENCRYPTION_KEY)
 
+from datetime import datetime, timedelta, timezone
+
+BRT = timezone(timedelta(hours=-3))
+
+def get_br_time():
+    return datetime.now(BRT).replace(tzinfo=None)
+
 # ================= MODELOS =================
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -70,7 +77,7 @@ class Announcement(db.Model):
     title = db.Column(db.String(150), nullable=False)
     content = db.Column(db.Text, nullable=False)
     document_link = db.Column(db.String(500), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=get_br_time)
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     
     author = db.relationship('User', backref='announcements')
@@ -87,7 +94,7 @@ class AnnouncementView(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     announcement_id = db.Column(db.Integer, db.ForeignKey('announcement.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    viewed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    viewed_at = db.Column(db.DateTime, default=get_br_time)
     
     user = db.relationship('User')
 
@@ -98,7 +105,7 @@ class SavedPassword(db.Model):
     service_url = db.Column(db.String(255), nullable=True)
     service_username = db.Column(db.String(100), nullable=False)
     encrypted_password = db.Column(db.LargeBinary, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=get_br_time)
 
 class PasswordHistory(db.Model):
     """Histórico de alterações de uma credencial salva."""
@@ -108,7 +115,7 @@ class PasswordHistory(db.Model):
     service_name = db.Column(db.String(100), nullable=False)
     action = db.Column(db.String(50), nullable=False)  # 'criada', 'alterada', 'removida'
     changed_by = db.Column(db.String(100), nullable=True)
-    changed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    changed_at = db.Column(db.DateTime, default=get_br_time)
 
 class AuditLog(db.Model):
     """Log de auditoria global do sistema."""
@@ -118,7 +125,7 @@ class AuditLog(db.Model):
     action = db.Column(db.String(100), nullable=False)
     details = db.Column(db.String(500), nullable=True)
     ip_address = db.Column(db.String(50), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=get_br_time)
 
 
 
@@ -138,7 +145,15 @@ def get_client_ip():
     return ip
 
 @app.before_request
-def update_user_ip():
+def update_user_ip_and_cleanup_avisos():
+    # Remover avisos com mais de 7 dias
+    limite = get_br_time() - timedelta(days=7)
+    velhos = Announcement.query.filter(Announcement.created_at < limite).all()
+    if velhos:
+        for a in velhos:
+            db.session.delete(a)
+        db.session.commit()
+
     if current_user.is_authenticated:
         ip = get_client_ip()
         if current_user.machine_ip != ip:
@@ -1111,20 +1126,78 @@ def rh_novo_aviso():
         db.session.commit()
         
         arquivos = request.files.getlist('arquivos')
+        count = 1
         for arquivo in arquivos:
             if arquivo and arquivo.filename:
+                ext = arquivo.filename.rsplit('.', 1)[-1] if '.' in arquivo.filename else ''
+                # Se for mais de um arquivo, anexa o contador
+                if len(arquivos) > 1 and count > 1:
+                    novo_nome = f"{titulo}_{count}.{ext}" if ext else f"{titulo}_{count}"
+                else:
+                    novo_nome = f"{titulo}.{ext}" if ext else titulo
+                
                 file_data = arquivo.read()
                 novo_arq = AnnouncementFile(
                     announcement_id=aviso.id,
-                    filename=arquivo.filename,
+                    filename=novo_nome,
                     file_data=file_data
                 )
                 db.session.add(novo_arq)
+                count += 1
         db.session.commit()
         registrar_auditoria('AVISO_CRIADO', f'O RH/Admin "{current_user.username}" publicou um novo aviso: "{titulo}".')
         flash('Aviso publicado com sucesso!', 'success')
     else:
         flash('Título e conteúdo são obrigatórios.', 'error')
+        
+    return redirect(url_for('rh_panel'))
+
+@app.route('/rh/aviso/editar/<int:aviso_id>', methods=['POST'])
+@login_required
+def rh_editar_aviso(aviso_id):
+    if not (current_user.is_admin or current_user.is_hr):
+        return redirect(url_for('dashboard'))
+        
+    aviso = Announcement.query.get_or_404(aviso_id)
+    titulo = request.form.get('titulo')
+    conteudo = request.form.get('conteudo')
+    document_link = request.form.get('document_link')
+    
+    if titulo and conteudo:
+        aviso.title = titulo
+        aviso.content = conteudo
+        aviso.document_link = document_link
+        
+        # Opcional: lidar com novos arquivos
+        arquivos = request.files.getlist('arquivos')
+        if arquivos and arquivos[0].filename:
+            # Apaga antigos ou mantém? O usuário pediu só pra editar com erro. Vamos apagar os antigos e botar os novos.
+            for f in aviso.files:
+                db.session.delete(f)
+            
+            count = 1
+            for arquivo in arquivos:
+                if arquivo and arquivo.filename:
+                    ext = arquivo.filename.rsplit('.', 1)[-1] if '.' in arquivo.filename else ''
+                    if len(arquivos) > 1 and count > 1:
+                        novo_nome = f"{titulo}_{count}.{ext}" if ext else f"{titulo}_{count}"
+                    else:
+                        novo_nome = f"{titulo}.{ext}" if ext else titulo
+                        
+                    file_data = arquivo.read()
+                    novo_arq = AnnouncementFile(
+                        announcement_id=aviso.id,
+                        filename=novo_nome,
+                        file_data=file_data
+                    )
+                    db.session.add(novo_arq)
+                    count += 1
+        
+        db.session.commit()
+        registrar_auditoria('AVISO_EDITADO', f'O RH/Admin "{current_user.username}" editou o aviso: "{titulo}".')
+        flash('Aviso atualizado com sucesso!', 'success')
+    else:
+        flash('Título e conteúdo são obrigatórios para editar.', 'error')
         
     return redirect(url_for('rh_panel'))
 
@@ -1146,7 +1219,7 @@ def rh_deletar_aviso(aviso_id):
 @app.route('/api/marcar_avisos_lidos', methods=['POST'])
 @login_required
 def marcar_avisos_lidos():
-    current_user.last_announcement_view = datetime.utcnow()
+    current_user.last_announcement_view = get_br_time()
     db.session.commit()
     return {'status': 'ok'}
 
@@ -1160,7 +1233,7 @@ def registrar_leitura(aviso_id):
         db.session.add(nova_view)
         db.session.commit()
     else:
-        existente.viewed_at = datetime.utcnow()
+        existente.viewed_at = get_br_time()
         db.session.commit()
     return {'status': 'ok'}
 
