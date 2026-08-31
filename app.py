@@ -63,6 +63,7 @@ class User(UserMixin, db.Model):
     sector = db.Column(db.String(100), nullable=True)
     unit = db.Column(db.String(100), nullable=True)
     last_login_date = db.Column(db.String(20), nullable=True) # Data no formato YYYY-MM-DD
+    last_announcement_view = db.Column(db.DateTime, nullable=True)
 
 class Announcement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -73,6 +74,15 @@ class Announcement(db.Model):
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     
     author = db.relationship('User', backref='announcements')
+    views = db.relationship('AnnouncementView', backref='announcement', cascade='all, delete-orphan')
+
+class AnnouncementView(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    announcement_id = db.Column(db.Integer, db.ForeignKey('announcement.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    viewed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    user = db.relationship('User')
 
 class SavedPassword(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -559,12 +569,12 @@ def dashboard():
         
     avisos = Announcement.query.order_by(Announcement.created_at.desc()).all()
     
-    # Avisos recentes (últimos 3 dias) para notificação
-    from datetime import datetime, timedelta
-    tres_dias_atras = datetime.utcnow() - timedelta(days=3)
-    avisos_recentes = [a for a in avisos if a.created_at >= tres_dias_atras]
+    # Avisos não lidos
+    from datetime import datetime
+    last_view = current_user.last_announcement_view or datetime.min
+    avisos_nao_lidos = [a for a in avisos if a.created_at > last_view]
         
-    return render_template('dashboard.html', entries=decrypted_entries, avisos=avisos, avisos_recentes=avisos_recentes)
+    return render_template('dashboard.html', entries=decrypted_entries, avisos=avisos, avisos_nao_lidos=avisos_nao_lidos)
 
 @app.route('/editar_senha/<int:pass_id>', methods=['POST'])
 @login_required
@@ -1116,6 +1126,27 @@ def rh_deletar_aviso(aviso_id):
     flash('Aviso removido com sucesso!', 'success')
     return redirect(url_for('rh_panel'))
 
+@app.route('/api/marcar_avisos_lidos', methods=['POST'])
+@login_required
+def marcar_avisos_lidos():
+    current_user.last_announcement_view = datetime.utcnow()
+    db.session.commit()
+    return {'status': 'ok'}
+
+@app.route('/api/registrar_leitura/<int:aviso_id>', methods=['POST'])
+@login_required
+def registrar_leitura(aviso_id):
+    # Verifica se já registrou para não duplicar muito
+    existente = AnnouncementView.query.filter_by(announcement_id=aviso_id, user_id=current_user.id).first()
+    if not existente:
+        nova_view = AnnouncementView(announcement_id=aviso_id, user_id=current_user.id)
+        db.session.add(nova_view)
+        db.session.commit()
+    else:
+        existente.viewed_at = datetime.utcnow()
+        db.session.commit()
+    return {'status': 'ok'}
+
 # ================= INICIALIZAÇÃO DO BANCO E MIGRAÇÃO AUTOMÁTICA =================
 def inicializar_banco():
     from sqlalchemy import text, inspect
@@ -1144,7 +1175,8 @@ def inicializar_banco():
                     ('sector', 'VARCHAR(100)'),
                     ('unit', 'VARCHAR(100)'),
                     ('last_login_date', 'VARCHAR(20)'),
-                    ('is_hr', 'BOOLEAN DEFAULT FALSE')
+                    ('is_hr', 'BOOLEAN DEFAULT FALSE'),
+                    ('last_announcement_view', 'TIMESTAMP')
                 ]
                 
                 for col_name, col_type in columns_to_ensure:
