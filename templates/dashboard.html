@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}GAMAPASS - Cofre{% endblock %}
 {% block main_style %}align-items: flex-start; padding-top: 80px;{% endblock %}
 
@@ -31,7 +31,7 @@
 
         <!-- Google Drive Circulares (Links Manuais) -->
         <div style="flex: 1 1 300px; background: #ebf8fa; border: 1px solid #90cdf4; border-radius: 8px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: flex; flex-direction: column;">
-            <h4 style="margin: 0 0 10px 0; color: #2b6cb0;">Arquivos do RH</h4>
+            <h4 style="margin: 0 0 10px 0; color: #2b6cb0;">Mural de arquivos</h4>
             <p style="font-size: 0.8em; color: #4a5568; margin-bottom: 10px;">Clique em um documento para visualizá-lo em tela cheia.</p>
             
             <div style="flex: 1; border-radius: 4px; overflow-y: auto; border: 1px solid #cbd5e0; background: white; min-height: 200px; max-height: 250px; padding: 5px;">
@@ -41,14 +41,14 @@
                         {% set ns.has_docs = true %}
                         <div style="padding: 8px; border-bottom: 1px solid #edf2f7; display: flex; align-items: center; gap: 8px;">
                             
-                            <a href="#" onclick="openDocumentModal('{{ aviso.document_link }}', '{{ aviso.id }}'); return false;" style="color: #3182ce; text-decoration: none; font-size: 0.9em; flex: 1;">{{ aviso.title }} (Drive Externo)</a>
+                            <a href="#" onclick="openDocumentModal('{{ aviso.document_link }}', '{{ aviso.id }}'); return false;" style="color: #3182ce; text-decoration: none; font-size: 0.9em; flex: 1;">{{ aviso.title }}</a>
                         </div>
                     {% endif %}
                     {% for arquivo in aviso.files %}
                         {% set ns.has_docs = true %}
                         <div style="padding: 8px; border-bottom: 1px solid #edf2f7; display: flex; align-items: center; gap: 8px;">
                             
-                            <a href="#" onclick="openDocumentModal('{{ url_for('baixar_arquivo_aviso', file_id=arquivo.id) }}', '{{ aviso.id }}'); return false;" style="color: #3182ce; text-decoration: none; font-size: 0.9em; flex: 1;">{{ arquivo.filename }} (Upload: {{ aviso.title }})</a>
+                            <a href="#" onclick="openDocumentModal('{{ url_for('baixar_arquivo_aviso', file_id=arquivo.id) }}', '{{ aviso.id }}'); return false;" style="color: #3182ce; text-decoration: none; font-size: 0.9em; flex: 1;">{{ aviso.title }}{% if aviso.files|length > 1 %} ({{ loop.index }}){% endif %}</a>
                         </div>
                     {% endfor %}
                 {% endfor %}
