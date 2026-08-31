@@ -846,61 +846,6 @@ def admin_panel():
             
             registrar_auditoria('USUARIO_CRIADO', f'Novo usuário "{username}" ({full_email or "sem email"}) cadastrado pelo admin.')
             return redirect(url_for('admin_panel'))
-            
-        # CADASTRO EM MASSA
-        elif action == 'bulk_create':
-            bulk_usernames = request.form.get('bulk_usernames')
-            default_password = request.form.get('default_password')
-            is_admin = request.form.get('is_admin') == 'on'
-            send_email_bulk = request.form.get('send_email_bulk') == 'on'
-            
-            if not bulk_usernames or not default_password:
-                flash('Preencha os logins e a senha provisória.', 'error')
-                return redirect(url_for('admin_panel'))
-                
-            usernames_list = [u.strip() for u in bulk_usernames.split(',') if u.strip()]
-            adicionados = 0
-            ignorados = 0
-            emails_enviados = 0
-            link_acesso = request.host_url.rstrip('/') + url_for('login')
-            
-            for uname in usernames_list:
-                existente = User.query.filter_by(username=uname).first()
-                if existente:
-                    ignorados += 1
-                    continue
-                    
-                auto_email = f"{uname.split('@')[0].strip()}@gamacaminhoes.com.br"
-                novo_usuario = User(
-                    username=uname,
-                    email=auto_email,
-                    password_hash=generate_password_hash(default_password, method='scrypt'),
-                    is_admin=is_admin,
-                    is_first_login=True
-                )
-                db.session.add(novo_usuario)
-                adicionados += 1
-                
-                if send_email_bulk:
-                    sucesso, _ = enviar_email_convite(auto_email, uname, default_password, link_acesso)
-                    if sucesso:
-                        emails_enviados += 1
-                
-            try:
-                db.session.commit()
-                msg_sucesso = f"{adicionados} usuário(s) criados com sucesso!"
-                if send_email_bulk:
-                    msg_sucesso += f" ({emails_enviados} e-mails de convite disparados)."
-                if adicionados > 0:
-                    flash(msg_sucesso, 'success')
-                if ignorados > 0:
-                    flash(f"{ignorados} usuário(s) ignorados pois já existiam.", 'warning')
-            except Exception as e:
-                db.session.rollback()
-                flash(f'Erro interno: {e}', 'error')
-                
-            return redirect(url_for('admin_panel'))
-
     users = User.query.order_by(User.id.desc()).all()
     return render_template('admin.html', users=users)
 

@@ -18,7 +18,7 @@
     <!-- CADASTRO INDIVIDUAL COM CONVITE POR E-MAIL -->
     <div style="background-color: #f0f4f8; padding: 25px; border-radius: 8px; margin-bottom: 30px; border-left: 5px solid var(--navy-blue); box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
         <h3 class="vw-font" style="margin-top: 0; margin-bottom: 10px; color: var(--navy-blue); text-align: left;">
-            ✉️ Cadastrar Funcionário & Enviar Convite
+            Cadastrar Funcionário & Enviar Convite
         </h3>
         <p style="font-size: 0.9em; color: #555; margin-bottom: 20px;">
             Cadastre o funcionário e envie automaticamente o link de acesso à plataforma com a senha provisória para o e-mail corporativo dele.
@@ -72,48 +72,9 @@
             </div>
 
             <button type="submit" style="background-color: var(--navy-blue); padding: 14px; font-size: 1.05em; border-radius: 4px; box-shadow: 0 3px 6px rgba(0,0,0,0.15);">
-                ✉️ Cadastrar Funcionário & Enviar Convite
+                Cadastrar Funcionário & Enviar Convite
             </button>
         </form>
-
-        <!-- SEÇÃO EXPANSÍVEL PARA CADASTRO EM MASSA -->
-        <details style="margin-top: 25px; background-color: #fff; padding: 15px; border-radius: 6px; border: 1px solid #d0dbe5;">
-            <summary style="font-weight: bold; color: var(--navy-blue); cursor: pointer; font-size: 0.95em;">
-                ⚙️ Deseja cadastrar múltiplos usuários de uma vez? (Clique para expandir)
-            </summary>
-            <form method="POST" action="{{ url_for('admin_panel') }}" style="margin-top: 15px; display: flex; flex-direction: column; gap: 15px;">
-                <input type="hidden" name="action" value="bulk_create">
-                
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label>Logins separados por vírgula</label>
-                    <input type="text" name="bulk_usernames" placeholder="Ex: joao.silva, maria.rh, pedro.vendas" required>
-                    <small style="color: #666;">O e-mail será gerado automaticamente como <code>login@gamacaminhoes.com.br</code>.</small>
-                </div>
-                
-                <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
-                    <div class="form-group" style="flex: 1 1 250px; margin-bottom: 0;">
-                        <label>Senha Provisória Única</label>
-                        <div class="input-with-icon">
-                            <input type="password" id="bulk_pass" name="default_password" required>
-                            <button type="button" class="toggle-icon" onclick="togglePassword('bulk_pass', this)">👁️</button>
-                        </div>
-                    </div>
-                    
-                    <div style="flex: 1 1 250px; display: flex; flex-direction: column; gap: 8px;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <input type="checkbox" name="send_email_bulk" id="send_email_bulk" checked style="width: 18px; height: 18px;">
-                            <label for="send_email_bulk" style="margin-bottom: 0; cursor: pointer; font-size: 0.9em;">Enviar e-mail para todos</label>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <input type="checkbox" name="is_admin" id="bulk_is_admin" style="width: 18px; height: 18px;">
-                            <label for="bulk_is_admin" style="margin-bottom: 0; cursor: pointer; font-size: 0.9em;">Tornar Administradores</label>
-                        </div>
-                    </div>
-
-                    <button type="submit" style="width: auto; padding: 12px 25px; background-color: #555;">Cadastrar em Massa</button>
-                </div>
-            </form>
-        </details>
     </div>
 
     <!-- LISTA DE EQUIPE CADASTRADA -->
