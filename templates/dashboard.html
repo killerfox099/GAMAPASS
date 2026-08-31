@@ -67,17 +67,28 @@
             {% endif %}
         </div>
 
-        <!-- Google Drive Circulares -->
+        <!-- Google Drive Circulares (Links Manuais) -->
         <div style="flex: 1 1 300px; background: #ebf8fa; border: 1px solid #90cdf4; border-radius: 8px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: flex; flex-direction: column;">
             <h4 style="margin: 0 0 10px 0; color: #2b6cb0;">📁 Arquivos do RH</h4>
-            <p style="font-size: 0.8em; color: #4a5568; margin-bottom: 10px;">Clique em um documento para abri-lo na mesma tela (visualização).</p>
+            <p style="font-size: 0.8em; color: #4a5568; margin-bottom: 10px;">Clique em um documento para visualizá-lo em tela cheia.</p>
             
-            <div style="flex: 1; border-radius: 4px; overflow: hidden; border: 1px solid #cbd5e0; background: white; min-height: 200px;">
-                <!-- Link do drive formatado para visualização embutida -->
-                <iframe src="https://drive.google.com/embeddedfolderview?id=1tKzk1_KFrYN_9R05SNt3yuOXXnnYCWye#list" width="100%" height="100%" style="min-height: 220px;" frameborder="0"></iframe>
+            <div style="flex: 1; border-radius: 4px; overflow-y: auto; border: 1px solid #cbd5e0; background: white; min-height: 200px; max-height: 250px; padding: 5px;">
+                {% set has_docs = false %}
+                {% for aviso in avisos %}
+                    {% if aviso.document_link %}
+                        {% set has_docs = true %}
+                        <div style="padding: 8px; border-bottom: 1px solid #edf2f7; display: flex; align-items: center; gap: 8px;">
+                            <span>📄</span>
+                            <a href="#" onclick="openDocumentModal('{{ aviso.document_link }}'); return false;" style="color: #3182ce; text-decoration: none; font-size: 0.9em; flex: 1;">{{ aviso.title }}</a>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+                {% if not has_docs %}
+                    <p style="color: #a0aec0; font-size: 0.85em; text-align: center; margin-top: 30px; font-style: italic;">Nenhum documento anexado ainda.</p>
+                {% endif %}
             </div>
             
-            <a href="https://drive.google.com/drive/folders/1tKzk1_KFrYN_9R05SNt3yuOXXnnYCWye" target="_blank" style="margin-top: 10px; font-size: 0.8em; color: var(--navy-blue); text-align: center; text-decoration: underline;">Abrir Drive em nova aba</a>
+            <a href="https://drive.google.com/drive/folders/1tKzk1_KFrYN_9R05SNt3yuOXXnnYCWye" target="_blank" style="margin-top: 10px; font-size: 0.8em; color: var(--navy-blue); text-align: center; text-decoration: underline;">Abrir Drive Raiz em nova aba</a>
         </div>
     </div>
 
@@ -447,12 +458,46 @@ function ordenarSenhas() {
     cards.forEach(c => lista.appendChild(c));
 }
 
+// ===================== VISUALIZADOR DE DOCUMENTOS (POPUP) =====================
+function openDocumentModal(url) {
+    let finalUrl = url;
+    if (url.includes('drive.google.com') && url.includes('/view')) {
+        finalUrl = url.replace('/view', '/preview');
+    }
+    
+    document.getElementById('documentViewerIframe').src = finalUrl;
+    document.getElementById('documentModal').style.display = 'flex';
+}
+
+function closeDocumentModal() {
+    document.getElementById('documentViewerIframe').src = '';
+    document.getElementById('documentModal').style.display = 'none';
+}
+
 // ===================== ALTERAR IP =====================
 function toggleIpEdit() {
     var box = document.getElementById('ip-edit-box');
     if (box) box.style.display = (box.style.display === 'none' || box.style.display === '') ? 'block' : 'none';
 }
 
+</script>
+
+<!-- MODAL VISUALIZADOR DE DOCUMENTOS -->
+<div id="documentModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0,0,0,0.75); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div style="background-color: white; width: 90%; max-width: 1000px; height: 85vh; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); display: flex; flex-direction: column; overflow: hidden; position: relative;">
+        <!-- Cabecalho do Modal -->
+        <div style="background-color: var(--navy-blue); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.1em;">📄 Visualização de Circular</h3>
+            <button onclick="closeDocumentModal()" style="background: none; border: none; color: white; font-size: 1.5em; cursor: pointer; line-height: 1;">&times;</button>
+        </div>
+        <!-- Iframe do Documento -->
+        <div style="flex: 1; background-color: #f1f5f9; padding: 10px;">
+            <iframe id="documentViewerIframe" src="" width="100%" height="100%" frameborder="0" style="border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);"></iframe>
+        </div>
+    </div>
+</div>
+
+<script>
 // Inicializa contador
 window.addEventListener('DOMContentLoaded', () => filtrarSenhas());
 </script>

@@ -68,6 +68,7 @@ class Announcement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(150), nullable=False)
     content = db.Column(db.Text, nullable=False)
+    document_link = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     
@@ -1087,9 +1088,10 @@ def rh_novo_aviso():
     
     titulo = request.form.get('titulo')
     conteudo = request.form.get('conteudo')
+    document_link = request.form.get('document_link')
     
     if titulo and conteudo:
-        aviso = Announcement(title=titulo, content=conteudo, author_id=current_user.id)
+        aviso = Announcement(title=titulo, content=conteudo, document_link=document_link, author_id=current_user.id)
         db.session.add(aviso)
         db.session.commit()
         registrar_auditoria('AVISO_CRIADO', f'O RH/Admin "{current_user.username}" publicou um novo aviso: "{titulo}".')
@@ -1167,7 +1169,18 @@ def inicializar_banco():
                     except Exception as ex:
                         print(f"[MIGRATION EXCEPTION] saved_password.created_at: {ex}")
 
-                            
+            # Migração: coluna document_link em announcement
+            if 'announcement' in tables:
+                ann_cols = [c['name'] for c in inspector.get_columns('announcement')]
+                is_postgres = 'postgres' in db.engine.url.drivername or 'postgresql' in str(db.engine.url)
+                ann_ref = '"announcement"' if is_postgres else 'announcement'
+                if 'document_link' not in ann_cols:
+                    try:
+                        with db.engine.begin() as conn:
+                            print("[MIGRATION] Adicionando coluna document_link em announcement...")
+                            conn.execute(text(f"ALTER TABLE {ann_ref} ADD COLUMN document_link VARCHAR(500)"))
+                    except Exception as ex:
+                        print(f"[MIGRATION EXCEPTION] announcement.document_link: {ex}")
             # Se não houver nenhum usuário cadastrado no banco, cria o primeiro Admin
             if not User.query.first():
                 admin_user = os.environ.get('INITIAL_ADMIN_USER', 'admin')

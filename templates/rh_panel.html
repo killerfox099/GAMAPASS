@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}GAMAPASS - Painel RH{% endblock %}
 {% block main_style %}align-items: flex-start; padding-top: 80px;{% endblock %}
 
@@ -28,6 +28,10 @@
             <div style="margin-bottom: 15px;">
                 <label style="display: block; font-size: 0.9em; font-weight: bold; color: var(--navy-blue); margin-bottom: 5px;">Conteúdo / Mensagem</label>
                 <textarea name="conteudo" rows="4" placeholder="Escreva a mensagem aqui..." required style="width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit;"></textarea>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; font-size: 0.9em; font-weight: bold; color: var(--navy-blue); margin-bottom: 5px;">Link da Circular (Opcional)</label>
+                <input type="url" name="document_link" placeholder="Ex: https://drive.google.com/file/d/.../view" style="width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #ccc;">
             </div>
             <button type="submit" style="background-color: #2b7a4b; color: white; padding: 10px 20px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer;">Publicar no Mural</button>
         </form>
