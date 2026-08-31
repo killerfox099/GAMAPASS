@@ -52,8 +52,9 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(100), unique=True, nullable=False)
     display_name = db.Column(db.String(100), nullable=True)
     email = db.Column(db.String(120), nullable=True)
-    password_hash = db.Column(db.String(200), nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
+    is_hr = db.Column(db.Boolean, default=False)
     is_first_login = db.Column(db.Boolean, default=True)
     requires_password_reset = db.Column(db.Boolean, default=False)
     
@@ -62,6 +63,15 @@ class User(UserMixin, db.Model):
     sector = db.Column(db.String(100), nullable=True)
     unit = db.Column(db.String(100), nullable=True)
     last_login_date = db.Column(db.String(20), nullable=True) # Data no formato YYYY-MM-DD
+
+class Announcement(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(150), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    
+    author = db.relationship('User', backref='announcements')
 
 class SavedPassword(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -546,7 +556,9 @@ def dashboard():
             'password': decrypted_pw
         })
         
-    return render_template('dashboard.html', entries=decrypted_entries)
+    avisos = Announcement.query.order_by(Announcement.created_at.desc()).all()
+        
+    return render_template('dashboard.html', entries=decrypted_entries, avisos=avisos)
 
 @app.route('/editar_senha/<int:pass_id>', methods=['POST'])
 @login_required
@@ -754,6 +766,7 @@ def admin_panel():
             email_prefix = request.form.get('email_prefix', '').strip()
             password = request.form.get('password', '').strip()
             is_admin = request.form.get('is_admin') == 'on'
+            is_hr = request.form.get('is_hr') == 'on'
             send_email = request.form.get('send_email') == 'on'
             
             if not username or not password:
@@ -774,6 +787,7 @@ def admin_panel():
                 email=full_email,
                 password_hash=generate_password_hash(password, method='scrypt'),
                 is_admin=is_admin,
+                is_hr=is_hr,
                 is_first_login=True
             )
             try:
@@ -922,6 +936,10 @@ def editar_usuario(user_id):
     usuario.unit = request.form.get('unit', usuario.unit)
     usuario.machine_ip = request.form.get('machine_ip', usuario.machine_ip)
     
+    # Checkbox forms enviam 'on' se marcado, None se desmarcado
+    usuario.is_admin = request.form.get('is_admin') == 'on'
+    usuario.is_hr = request.form.get('is_hr') == 'on'
+    
     nova_senha = request.form.get('new_password')
 
     if nova_senha and nova_senha.strip() != '':
@@ -1045,6 +1063,52 @@ def exportar_auditoria():
     resposta.headers["Content-Disposition"] = "attachment; filename=gamapass_auditoria.csv"
     return resposta
 
+# ================= PAINEL DE RH E AVISOS =================
+@app.route('/rh')
+@login_required
+def rh_panel():
+    if not (current_user.is_admin or current_user.is_hr):
+        flash('Acesso negado. Esta área é restrita ao RH ou Administradores.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    avisos = Announcement.query.order_by(Announcement.created_at.desc()).all()
+    return render_template('rh_panel.html', avisos=avisos)
+
+@app.route('/rh/aviso/novo', methods=['POST'])
+@login_required
+def rh_novo_aviso():
+    if not (current_user.is_admin or current_user.is_hr):
+        return redirect(url_for('dashboard'))
+    
+    titulo = request.form.get('titulo')
+    conteudo = request.form.get('conteudo')
+    
+    if titulo and conteudo:
+        aviso = Announcement(title=titulo, content=conteudo, author_id=current_user.id)
+        db.session.add(aviso)
+        db.session.commit()
+        registrar_auditoria('AVISO_CRIADO', f'O RH/Admin "{current_user.username}" publicou um novo aviso: "{titulo}".')
+        flash('Aviso publicado com sucesso!', 'success')
+    else:
+        flash('Título e conteúdo são obrigatórios.', 'error')
+        
+    return redirect(url_for('rh_panel'))
+
+@app.route('/rh/aviso/deletar/<int:aviso_id>', methods=['POST'])
+@login_required
+def rh_deletar_aviso(aviso_id):
+    if not (current_user.is_admin or current_user.is_hr):
+        return redirect(url_for('dashboard'))
+    
+    aviso = Announcement.query.get_or_404(aviso_id)
+    titulo = aviso.title
+    db.session.delete(aviso)
+    db.session.commit()
+    
+    registrar_auditoria('AVISO_REMOVIDO', f'O RH/Admin "{current_user.username}" removeu o aviso: "{titulo}".')
+    flash('Aviso removido com sucesso!', 'success')
+    return redirect(url_for('rh_panel'))
+
 # ================= INICIALIZAÇÃO DO BANCO E MIGRAÇÃO AUTOMÁTICA =================
 def inicializar_banco():
     from sqlalchemy import text, inspect
@@ -1072,7 +1136,8 @@ def inicializar_banco():
                     ('department', 'VARCHAR(100)'),
                     ('sector', 'VARCHAR(100)'),
                     ('unit', 'VARCHAR(100)'),
-                    ('last_login_date', 'VARCHAR(20)')
+                    ('last_login_date', 'VARCHAR(20)'),
+                    ('is_hr', 'BOOLEAN DEFAULT FALSE')
                 ]
                 
                 for col_name, col_type in columns_to_ensure:

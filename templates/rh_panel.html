@@ -1,0 +1,59 @@
+﻿{% extends "base.html" %}
+{% block title %}GAMAPASS - Painel RH{% endblock %}
+{% block main_style %}align-items: flex-start; padding-top: 80px;{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 900px; width: 100%;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid darkred; padding-bottom: 10px; margin-bottom: 25px; flex-wrap: wrap; gap: 10px;">
+        <div>
+            <h2 class="vw-font" style="color: darkred; margin: 0; text-align: left;">👩‍💼 Painel Recursos Humanos</h2>
+            <small style="color: #666;">Gerenciamento do Mural de Avisos</small>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            {% if current_user.is_admin %}
+                <a href="{{ url_for('admin_panel') }}" style="color: #4a5568; font-weight: bold; text-decoration: none; border: 1px solid #4a5568; padding: 8px 15px; border-radius: 4px; font-size: 0.9em;">Painel TI</a>
+            {% endif %}
+            <a href="{{ url_for('dashboard') }}" style="color: var(--navy-blue); font-weight: bold; text-decoration: none; border: 1px solid var(--navy-blue); padding: 8px 15px; border-radius: 4px; font-size: 0.9em;">Voltar ao Cofre</a>
+        </div>
+    </div>
+
+    <!-- Novo Aviso -->
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+        <h4 style="margin: 0 0 15px 0; color: var(--navy-blue); font-size: 1.1em;">📢 Publicar Novo Aviso</h4>
+        <form method="POST" action="{{ url_for('rh_novo_aviso') }}">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; font-size: 0.9em; font-weight: bold; color: var(--navy-blue); margin-bottom: 5px;">Título do Aviso</label>
+                <input type="text" name="titulo" placeholder="Ex: Campanha de Vacinação, Feriado..." required style="width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #ccc;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; font-size: 0.9em; font-weight: bold; color: var(--navy-blue); margin-bottom: 5px;">Conteúdo / Mensagem</label>
+                <textarea name="conteudo" rows="4" placeholder="Escreva a mensagem aqui..." required style="width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit;"></textarea>
+            </div>
+            <button type="submit" style="background-color: #2b7a4b; color: white; padding: 10px 20px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer;">Publicar no Mural</button>
+        </form>
+    </div>
+
+    <!-- Avisos Publicados -->
+    <h3 class="vw-font" style="color: var(--navy-blue); margin-bottom: 15px;">Avisos Ativos</h3>
+    
+    {% if avisos %}
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+        {% for aviso in avisos %}
+            <div style="background-color: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 15px; position: relative;">
+                <form method="POST" action="{{ url_for('rh_deletar_aviso', aviso_id=aviso.id) }}" onsubmit="return confirm('Deseja mesmo remover este aviso do mural de todos?');" style="position: absolute; top: 15px; right: 15px; margin: 0;">
+                    <button type="submit" class="btn-danger" style="padding: 5px 10px; font-size: 0.8em; border-radius: 3px;">🗑️ Excluir</button>
+                </form>
+                
+                <h4 style="margin: 0 0 10px 0; color: #2d3748; padding-right: 80px;">{{ aviso.title }}</h4>
+                <p style="margin: 0 0 10px 0; font-size: 0.95em; color: #4a5568; white-space: pre-wrap;">{{ aviso.content }}</p>
+                <small style="color: #a0aec0; font-size: 0.8em;">Publicado em: {{ aviso.created_at.strftime('%d/%m/%Y às %H:%M') if aviso.created_at else '-' }} por {{ aviso.author.display_name or aviso.author.username if aviso.author else 'Sistema' }}</small>
+            </div>
+        {% endfor %}
+        </div>
+    {% else %}
+        <div style="text-align: center; padding: 30px; background: #f7fafc; border: 1px dashed #cbd5e0; border-radius: 6px;">
+            <p style="color: #718096; margin: 0;">Nenhum aviso publicado no momento.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

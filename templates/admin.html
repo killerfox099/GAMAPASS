@@ -58,15 +58,16 @@
                 </div>
 
                 <!-- Checkboxes -->
-                <div style="flex: 1 1 250px; display: flex; flex-direction: column; gap: 10px; justify-content: center; height: 100%; padding-bottom: 5px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <input type="checkbox" name="send_email" id="send_email" checked style="width: 18px; height: 18px; cursor: pointer;">
-                        <label for="send_email" style="margin-bottom: 0; cursor: pointer; font-size: 0.95em; color: #333;">Enviar convite por e-mail agora</label>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <input type="checkbox" name="is_admin" id="single_is_admin" style="width: 18px; height: 18px; cursor: pointer;">
-                        <label for="single_is_admin" style="margin-bottom: 0; cursor: pointer; font-size: 0.95em; color: darkred; font-weight: bold;">Tornar Administrador</label>
-                    </div>
+                <div style="flex: 1 1 100%; display: flex; gap: 20px; align-items: center; margin-bottom: 10px; margin-top: 10px;">
+                    <label style="display: flex; align-items: center; gap: 5px; font-weight: bold; color: darkred; cursor: pointer;">
+                        <input type="checkbox" name="is_admin" id="single_is_admin" style="width: 18px; height: 18px; cursor: pointer;"> Acesso Administrativo (TI)
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; font-weight: bold; color: #2b7a4b; cursor: pointer;">
+                        <input type="checkbox" name="is_hr" id="single_is_hr" style="width: 18px; height: 18px; cursor: pointer;"> Acesso Painel RH
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; color: #4a5568;">
+                        <input type="checkbox" name="send_email" id="send_email" checked style="width: 18px; height: 18px; cursor: pointer;"> Enviar Convite por E-mail
+                    </label>
                 </div>
             </div>
 
@@ -206,6 +207,15 @@
                         
                         <div class="form-group" style="flex: 1 1 45%; margin-bottom: 5px;"><label>Setor</label><input type="text" name="sector" value="{{ user.sector or '' }}"></div>
                         <div class="form-group" style="flex: 1 1 45%; margin-bottom: 5px;"><label>IP da Máquina</label><input type="text" name="machine_ip" value="{{ user.machine_ip or '' }}"></div>
+                        
+                        <div class="form-group" style="flex: 1 1 100%; margin-bottom: 5px;">
+                            <label style="display: flex; align-items: center; gap: 5px; font-weight: bold; color: darkred; cursor: pointer; margin-top: 10px;">
+                                <input type="checkbox" name="is_admin" style="width: 16px; height: 16px;" {% if user.is_admin %}checked{% endif %}> Acesso Administrativo (TI)
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; font-weight: bold; color: #2b7a4b; cursor: pointer; margin-top: 5px;">
+                                <input type="checkbox" name="is_hr" style="width: 16px; height: 16px;" {% if user.is_hr %}checked{% endif %}> Acesso Painel RH
+                            </label>
+                        </div>
                         
                         <div class="form-group" style="flex: 1 1 100%; margin-bottom: 0;">
                             <label style="color: darkred;">Redefinir Senha do Usuário</label>

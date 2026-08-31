@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}GAMAPASS - Cofre{% endblock %}
 {% block main_style %}align-items: flex-start; padding-top: 80px;{% endblock %}
 
@@ -23,9 +23,45 @@
                 🌙 Modo Escuro
             </button>
             {% if current_user.is_admin %}
-                <a href="{{ url_for('admin_panel') }}" style="color: darkred; font-weight: bold; text-decoration: none; border: 1px solid darkred; padding: 6px 12px; border-radius: 4px; font-size: 0.9em;">🛡️ Admin</a>
+                <a href="{{ url_for('admin_panel') }}" style="color: darkred; font-weight: bold; text-decoration: none; border: 1px solid darkred; padding: 6px 12px; border-radius: 4px; font-size: 0.9em;">🛡️ TI</a>
+            {% endif %}
+            {% if current_user.is_hr or current_user.is_admin %}
+                <a href="{{ url_for('rh_panel') }}" style="color: #2b7a4b; font-weight: bold; text-decoration: none; border: 1px solid #2b7a4b; padding: 6px 12px; border-radius: 4px; font-size: 0.9em;">👩‍💼 RH</a>
             {% endif %}
             <a href="{{ url_for('logout') }}" style="color: var(--navy-blue); font-weight: bold; text-decoration: none; border: 1px solid var(--navy-blue); padding: 6px 12px; border-radius: 4px; font-size: 0.9em;">Sair</a>
+        </div>
+    </div>
+
+    <!-- MURAL DE AVISOS E DRIVE (Apenas se tiver avisos ou para mostrar o drive) -->
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 25px;">
+        <!-- Quadro de Avisos -->
+        <div style="flex: 2 1 400px; background: #fff8e1; border: 1px solid #f6e05e; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+            <h3 style="margin: 0 0 15px 0; color: #b7791f; display: flex; align-items: center; gap: 8px;">
+                <span>📌</span> Mural de Avisos
+            </h3>
+            {% if avisos %}
+                <div style="display: flex; flex-direction: column; gap: 12px; max-height: 200px; overflow-y: auto; padding-right: 5px;">
+                    {% for aviso in avisos %}
+                    <div style="background: white; border-left: 4px solid #ecc94b; padding: 10px; border-radius: 4px;">
+                        <h5 style="margin: 0 0 5px 0; color: #744210; font-size: 0.95em;">{{ aviso.title }}</h5>
+                        <p style="margin: 0; font-size: 0.85em; color: #555; white-space: pre-wrap;">{{ aviso.content }}</p>
+                        <div style="font-size: 0.7em; color: #a0aec0; margin-top: 5px; text-align: right;">{{ aviso.created_at.strftime('%d/%m %H:%M') }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p style="color: #718096; font-size: 0.9em; margin: 0; font-style: italic;">Nenhum aviso novo no momento.</p>
+            {% endif %}
+        </div>
+
+        <!-- Google Drive Circulares Placeholder -->
+        <div style="flex: 1 1 200px; background: #ebf8fa; border: 1px solid #90cdf4; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+            <h4 style="margin: 0 0 10px 0; color: #2b6cb0;">📁 Circulares (Drive)</h4>
+            <p style="font-size: 0.85em; color: #4a5568; margin-bottom: 15px;">Acesse os documentos e circulares do RH.</p>
+            <div style="background: #e2e8f0; border: 1px dashed #a0aec0; padding: 15px; border-radius: 4px; width: 100%; font-size: 0.8em; color: #718096;">
+                <em>Aguardando link do Drive...</em><br>
+                (O Drive aparecerá aqui)
+            </div>
         </div>
     </div>
 
