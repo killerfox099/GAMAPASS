@@ -339,10 +339,18 @@ def disparar_email_smtp(destinatario, msg):
     return False, erro_detalhe
 
 def enviar_email_geral(destinatario, assunto, corpo):
-    """Tenta enviar via SMTP (Gmail/Outlook/Skymail) ou API (Brevo/Resend) com fallback em cascata."""
+    """Tenta enviar via API HTTPS (Brevo/Resend) ou SMTP com fallback em cascata."""
     erros = []
+
+    # 1. Brevo API (HTTPS - Recomendado e funciona no Render sem bloqueio de portas)
+    brevo_key = os.environ.get('BREVO_API_KEY', '').strip()
+    if brevo_key:
+        sucesso, msg_brevo = enviar_via_brevo(destinatario, assunto, corpo)
+        if sucesso:
+            return True, msg_brevo
+        erros.append(f"Brevo ({msg_brevo})")
     
-    # 1. Se EMAIL_SENHA estiver configurado, tenta primeiro o SMTP direto (ex: Gmail com Senha de App)
+    # 2. SMTP direto (Gmail/Outlook)
     senha_email = os.environ.get('EMAIL_SENHA', '').strip()
     remetente = os.environ.get('EMAIL_REMETENTE', '').strip()
     
@@ -358,15 +366,7 @@ def enviar_email_geral(destinatario, assunto, corpo):
             return True, msg_smtp
         erros.append(f"SMTP ({msg_smtp})")
 
-    # 2. Se falhar ou não tiver SMTP, tenta Brevo (se configurado)
-    brevo_key = os.environ.get('BREVO_API_KEY', '').strip()
-    if brevo_key:
-        sucesso, msg_brevo = enviar_via_brevo(destinatario, assunto, corpo)
-        if sucesso:
-            return True, msg_brevo
-        erros.append(f"Brevo ({msg_brevo})")
-
-    # 3. Tenta Resend (se configurado)
+    # 3. Resend API (HTTPS)
     resend_key = os.environ.get('RESEND_API_KEY', '').strip()
     if resend_key:
         sucesso, msg_resend = enviar_via_resend(destinatario, assunto, corpo)
@@ -375,7 +375,7 @@ def enviar_email_geral(destinatario, assunto, corpo):
         erros.append(f"Resend ({msg_resend})")
 
     if not erros:
-        return False, "Nenhum método de envio configurado (defina EMAIL_REMETENTE e EMAIL_SENHA no Render)."
+        return False, "Nenhum método de envio configurado (configure BREVO_API_KEY no Render)."
         
     return False, " | ".join(erros)
 
