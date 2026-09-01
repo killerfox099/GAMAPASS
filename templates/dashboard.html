@@ -39,15 +39,15 @@
                 {% for aviso in global_avisos %}
                     {% if aviso.document_link %}
                         {% set ns.has_docs = true %}
-                        <div style="padding: 8px; border-bottom: 1px solid #edf2f7; display: flex; align-items: center; gap: 8px;">
-                            
+                        <div style="padding: 8px; border-bottom: 1px solid #edf2f7; display: flex; align-items: center; gap: 8px; {% if aviso.is_urgent %}background: #fff5f5; border-left: 3px solid #e53e3e;{% endif %}">
+                            {% if aviso.is_urgent %}<span style="background: #e53e3e; color: white; font-size: 0.7em; padding: 2px 6px; border-radius: 3px; font-weight: bold;">URGENTE</span>{% endif %}
                             <a href="#" onclick="openDocumentModal('{{ aviso.document_link }}', '{{ aviso.id }}'); return false;" style="color: #3182ce; text-decoration: none; font-size: 0.9em; flex: 1;">{{ aviso.title }}</a>
                         </div>
                     {% endif %}
                     {% for arquivo in aviso.files %}
                         {% set ns.has_docs = true %}
-                        <div style="padding: 8px; border-bottom: 1px solid #edf2f7; display: flex; align-items: center; gap: 8px;">
-                            
+                        <div style="padding: 8px; border-bottom: 1px solid #edf2f7; display: flex; align-items: center; gap: 8px; {% if aviso.is_urgent %}background: #fff5f5; border-left: 3px solid #e53e3e;{% endif %}">
+                            {% if aviso.is_urgent %}<span style="background: #e53e3e; color: white; font-size: 0.7em; padding: 2px 6px; border-radius: 3px; font-weight: bold;">URGENTE</span>{% endif %}
                             <a href="#" onclick="openDocumentModal('{{ url_for('baixar_arquivo_aviso', file_id=arquivo.id) }}', '{{ aviso.id }}'); return false;" style="color: #3182ce; text-decoration: none; font-size: 0.9em; flex: 1;">{{ aviso.title }}{% if aviso.files|length > 1 %} ({{ loop.index }}){% endif %}</a>
                         </div>
                     {% endfor %}
@@ -70,7 +70,7 @@
                 <input type="text" name="service_url" placeholder="URL/Link (Opcional)" style="flex: 1 1 150px; padding: 10px;">
                 <input type="text" name="service_user" placeholder="Login no serviço" required style="flex: 1 1 150px; padding: 10px;">
             </div>
-            <div style="display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap;">
+            <div style="display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 10px;">
                 <div style="flex: 1 1 200px;">
                     <div class="input-with-icon">
                         <input type="password" id="add_pass" name="service_pass" placeholder="Senha" required
@@ -89,8 +89,11 @@
                 </div>
                 <button type="button" onclick="gerarSenha('add_pass','add_strength_bar','add_strength_label')"
                     style="width: auto; padding: 10px 14px; font-size: 0.88em; background-color: #2b7a4b; white-space: nowrap; flex-shrink: 0;">🎲 Gerar Senha</button>
-                <button type="submit" style="flex: 0 1 auto; padding: 10px 22px; white-space: nowrap;">Salvar</button>
             </div>
+            <div style="margin-bottom: 12px;">
+                <textarea name="notes" placeholder="📝 Observações / Notas Seguras (Criptografadas, ex: PINs, respostas de segurança, detalhes de acesso)..." rows="2" style="width: 100%; padding: 8px 10px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit; font-size: 0.88em;"></textarea>
+            </div>
+            <button type="submit" style="width: 100%; max-width: 200px; padding: 10px 22px; font-weight: bold;">Salvar Credencial</button>
         </form>
     </div>
 
@@ -120,10 +123,10 @@
     <div id="lista-senhas">
     {% if entries %}
         {% for entry in entries %}
-        <div class="password-card linha-senha" data-service="{{ entry.service_name }}" data-created="{{ entry.id }}" style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 15px;">
+        <div class="password-card linha-senha" data-service="{{ entry.service_name }}" data-created="{{ entry.id }}" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px;">
 
             <!-- MODO VISUALIZAÇÃO -->
-            <div id="view-pass-{{ entry.id }}" style="display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap;">
+            <div id="view-pass-{{ entry.id }}" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; flex-wrap: wrap;">
                 <div style="word-break: break-all; flex: 1; min-width: 200px;">
                     <strong>Serviço:</strong>
                     {% if entry.service_url %}
@@ -159,17 +162,53 @@
                         {% elif score == 4 %}🟢 Forte
                         {% else %}🔵 Muito Forte{% endif %}
                     </span>
+
+                    <!-- Notas Seguras (se houver) -->
+                    {% if entry.notes %}
+                        <div style="margin-top: 8px; background: #edf2f7; padding: 8px 10px; border-radius: 4px; border-left: 3px solid #718096; font-size: 0.85em; color: #4a5568;">
+                            <strong>📝 Notas:</strong> <span style="white-space: pre-wrap;">{{ entry.notes }}</span>
+                        </div>
+                    {% endif %}
+
+                    <!-- Compartilhamentos Ativos -->
+                    {% if entry.shares %}
+                        <div style="margin-top: 8px; font-size: 0.82em; color: #2b6cb0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <strong>🔗 Compartilhado com:</strong>
+                            {% for share in entry.shares %}
+                                <span style="background: #ebf8fa; border: 1px solid #bee3f8; padding: 2px 6px; border-radius: 3px; display: inline-flex; align-items: center; gap: 4px;">
+                                    {{ share.recipient_name }}
+                                    <form method="POST" action="{{ url_for('revogar_compartilhamento', share_id=share.id) }}" style="margin:0; display:inline;" onsubmit="return confirm('Deseja revogar o acesso deste usuário?');">
+                                        <button type="submit" style="background:none; border:none; color:#e53e3e; font-weight:bold; cursor:pointer; padding:0 2px; font-size:1em;" title="Revogar acesso">&times;</button>
+                                    </form>
+                                </span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                 </div>
 
-                <div style="display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap;">
+                <div style="display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap;">
+                    <button type="button" onclick="toggleShareBox('{{ entry.id }}')"
+                        style="width: auto; padding: 7px 10px; font-size: 0.82em; background-color: #3182ce; color: white; border: none; border-radius: 4px; cursor: pointer;">🔗 Compartilhar</button>
                     <button type="button" onclick="verHistorico({{ entry.id }}, '{{ entry.service_name }}')"
-                        style="width: auto; padding: 7px 12px; font-size: 0.85em; background-color: #4a5568; color: white; border: none; border-radius: 4px; cursor: pointer;">Histórico</button>
+                        style="width: auto; padding: 7px 10px; font-size: 0.82em; background-color: #4a5568; color: white; border: none; border-radius: 4px; cursor: pointer;">Histórico</button>
                     <button type="button" onclick="toggleEditPass('{{ entry.id }}')"
-                        style="width: auto; padding: 7px 12px; font-size: 0.85em; background-color: #555; color: white; border: none; border-radius: 4px; cursor: pointer;">Editar</button>
+                        style="width: auto; padding: 7px 10px; font-size: 0.82em; background-color: #555; color: white; border: none; border-radius: 4px; cursor: pointer;">Editar</button>
                     <form method="POST" action="{{ url_for('delete_password', pass_id=entry.id) }}" onsubmit="return confirm('Tem certeza que deseja apagar essa credencial permanentemente?');" style="margin: 0;">
-                        <button type="submit" class="btn-danger" style="width: auto; padding: 7px 12px; font-size: 0.85em;">Apagar</button>
+                        <button type="submit" class="btn-danger" style="width: auto; padding: 7px 10px; font-size: 0.82em;">Apagar</button>
                     </form>
                 </div>
+            </div>
+
+            <!-- Caixa de Compartilhamento (oculta) -->
+            <div id="share-box-{{ entry.id }}" style="display: none; background-color: #ebf8fa; border: 1px solid #90cdf4; border-radius: 6px; padding: 12px; margin-top: 5px;">
+                <form method="POST" action="{{ url_for('compartilhar_senha', pass_id=entry.id) }}" style="margin: 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end;">
+                    <div style="flex: 1 1 200px;">
+                        <label style="font-size: 0.85em; font-weight: bold; color: #2c5282; margin-bottom: 3px; display: block;">Digite o login do membro de destino:</label>
+                        <input type="text" name="recipient_username" placeholder="Ex: joao.silva" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9em;">
+                    </div>
+                    <button type="submit" style="width: auto; padding: 8px 16px; font-size: 0.85em; background-color: #2b6cb0;">Enviar Credencial</button>
+                    <button type="button" onclick="toggleShareBox('{{ entry.id }}')" style="width: auto; padding: 8px 12px; font-size: 0.85em; background-color: #a0aec0; color: white; border: none; border-radius: 4px; cursor: pointer;">Fechar</button>
+                </form>
             </div>
 
             <!-- Modal de Histórico (oculto) -->
@@ -213,6 +252,10 @@
                                 style="width: auto; padding: 5px 12px; font-size: 0.82em; background-color: #2b7a4b; margin-top:6px;">🎲 Gerar Senha</button>
                         </div>
                     </div>
+                    <div>
+                        <label style="font-size: 0.9em; font-weight: bold; color: var(--navy-blue);">Notas Seguras / Observações:</label>
+                        <textarea name="notes" rows="2" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; font-size: 0.9em;">{{ entry.notes or '' }}</textarea>
+                    </div>
                     <div style="display: flex; gap: 10px; margin-top: 5px;">
                         <button type="submit" style="background-color: var(--navy-blue); flex: 1; padding: 10px;">💾 Salvar</button>
                         <button type="button" onclick="toggleEditPass('{{ entry.id }}')" style="background-color: #ccc; color: #333; flex: 1; padding: 10px; border: none; border-radius: 4px; cursor: pointer;">Cancelar</button>
@@ -222,9 +265,49 @@
         </div>
         {% endfor %}
     {% else %}
-        <p>Nenhuma senha salva ainda.</p>
+        <p style="color: #718096; text-align: center; padding: 20px;">Nenhuma credencial salva no seu cofre pessoal ainda.</p>
     {% endif %}
     </div>
+
+    <!-- SEÇÃO: CREDENCIAIS COMPARTILHADAS COMIGO -->
+    {% if shared_entries %}
+    <div style="margin-top: 35px; border-top: 2px dashed #cbd5e0; padding-top: 25px;">
+        <h3 class="vw-font" style="margin: 0 0 15px 0; color: #2b6cb0; display: flex; align-items: center; gap: 8px;">
+            <span>🤝</span> Credenciais Compartilhadas Comigo ({{ shared_entries|length }})
+        </h3>
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            {% for s in shared_entries %}
+            <div class="password-card" style="background-color: #f7fafc; border-left: 4px solid #3182ce; padding: 15px; border-radius: 6px; display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; flex-wrap: wrap;">
+                <div style="word-break: break-all; flex: 1; min-width: 200px;">
+                    <div style="font-size: 0.8em; color: #2b6cb0; font-weight: bold; margin-bottom: 5px;">
+                        👤 Compartilhado por: {{ s.sender_name }} ({{ s.sender_username }}) em {{ s.shared_at }}
+                    </div>
+                    <strong>Serviço:</strong>
+                    {% if s.service_url %}
+                        <a href="{{ s.service_url if 'http' in s.service_url else 'https://' + s.service_url }}" target="_blank" style="color: var(--navy-blue); text-decoration: underline;">
+                            {{ s.service_name }}
+                        </a>
+                    {% else %}
+                        {{ s.service_name }}
+                    {% endif %}
+                    <br>
+                    <strong>Usuário:</strong> {{ s.service_username }}<br>
+                    <strong>Senha:</strong>
+                    <code class="secret-text" data-secret="{{ s.password }}">********</code>
+                    <button type="button" onclick="copiarSenha('{{ s.password }}', this)"
+                        style="width:auto; padding: 3px 10px; font-size: 0.78em; background:#4a5568; border-radius:4px; margin-left:5px; vertical-align: middle;">📋 Copiar</button>
+                    
+                    {% if s.notes %}
+                        <div style="margin-top: 8px; background: #ebf8fa; padding: 8px 10px; border-radius: 4px; border: 1px solid #bee3f8; font-size: 0.85em; color: #2c5282;">
+                            <strong>📝 Notas:</strong> <span style="white-space: pre-wrap;">{{ s.notes }}</span>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Botões CSV -->
@@ -338,6 +421,13 @@ function toggleEditPass(passId) {
     const edit = document.getElementById('edit-pass-' + passId);
     if (edit.style.display === 'none') { edit.style.display = 'block'; view.style.display = 'none'; }
     else { edit.style.display = 'none'; view.style.display = 'flex'; }
+}
+
+// ===================== TOGGLE COMPARTILHAR =====================
+function toggleShareBox(passId) {
+    const box = document.getElementById('share-box-' + passId);
+    if (!box) return;
+    box.style.display = box.style.display === 'none' ? 'block' : 'none';
 }
 
 // ===================== TOGGLE SENHA =====================

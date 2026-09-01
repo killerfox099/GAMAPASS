@@ -4,16 +4,64 @@
 
 {% block content %}
 <div class="container" style="max-width: 950px; width: 100%;"> 
-    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid darkred; padding-bottom: 10px; margin-bottom: 30px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid darkred; padding-bottom: 10px; margin-bottom: 25px;">
         <div>
             <h2 class="vw-font" style="color: darkred; margin: 0; text-align: left;">Administração GAMA</h2>
-            <small style="color: #666;">Gestão de Acessos e Convites de Funcionários</small>
+            <small style="color: #666;">Gestão de Acessos, Auditoria e Métricas de Segurança</small>
         </div>
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-            <a href="{{ url_for('admin_auditoria') }}" style="background-color: #4a5568; color: white; font-weight: bold; text-decoration: none; padding: 8px 15px; border-radius: 4px; font-size: 0.9em;">📋 Log de Auditoria</a>
+            <a href="{{ url_for('admin_auditoria') }}" style="background-color: #4a5568; color: white; font-weight: bold; text-decoration: none; padding: 8px 15px; border-radius: 4px; font-size: 0.9em;">📋 Log de Auditoria & Relatórios</a>
             <a href="{{ url_for('dashboard') }}" style="color: var(--navy-blue); font-weight: bold; text-decoration: none; border: 1px solid var(--navy-blue); padding: 8px 15px; border-radius: 4px;">Voltar ao Cofre</a>
         </div>
     </div>
+
+    <!-- PAINEL DE MÉTRICAS & GRÁFICOS GERENCIAIS -->
+    {% if metricas %}
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 30px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
+        <h3 class="vw-font" style="margin-top: 0; margin-bottom: 15px; color: var(--navy-blue); font-size: 1.15em;">
+            📊 Indicadores e Métricas de Segurança
+        </h3>
+        
+        <!-- Cards Rápidos -->
+        <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 25px;">
+            <div style="flex: 1 1 180px; background: #f0f4f8; padding: 15px; border-radius: 6px; border-left: 4px solid var(--navy-blue);">
+                <span style="font-size: 0.85em; color: #4a5568; font-weight: bold;">Total de Usuários</span>
+                <div style="font-size: 1.6em; font-weight: bold; color: var(--navy-blue); margin-top: 5px;">{{ metricas.total_users }}</div>
+            </div>
+            <div style="flex: 1 1 180px; background: #ebf8fa; padding: 15px; border-radius: 6px; border-left: 4px solid #3182ce;">
+                <span style="font-size: 0.85em; color: #2c5282; font-weight: bold;">Adesão da Equipe</span>
+                <div style="font-size: 1.6em; font-weight: bold; color: #2b6cb0; margin-top: 5px;">{{ metricas.taxa_adesao }}%</div>
+                <small style="color: #4a5568; font-size: 0.75em;">{{ metricas.users_ativos }}/{{ metricas.total_users }} ativos</small>
+            </div>
+            <div style="flex: 1 1 180px; background: #fefcbf; padding: 15px; border-radius: 6px; border-left: 4px solid #d69e2e;">
+                <span style="font-size: 0.85em; color: #744210; font-weight: bold;">Senhas Fracas</span>
+                <div style="font-size: 1.6em; font-weight: bold; color: #b7791f; margin-top: 5px;">{{ metricas.senhas_fracas }}</div>
+                <small style="color: #744210; font-size: 0.75em;">de {{ metricas.total_senhas }} credenciais salvas</small>
+            </div>
+            <div style="flex: 1 1 180px; background: #c6f6d5; padding: 15px; border-radius: 6px; border-left: 4px solid #38a169;">
+                <span style="font-size: 0.85em; color: #22543d; font-weight: bold;">Senhas Fortes</span>
+                <div style="font-size: 1.6em; font-weight: bold; color: #22543d; margin-top: 5px;">{{ metricas.senhas_fortes }}</div>
+                <small style="color: #22543d; font-size: 0.75em;">alta segurança</small>
+            </div>
+        </div>
+
+        <!-- Gráficos Chart.js -->
+        <div style="display: flex; gap: 20px; flex-wrap: wrap; justify-content: space-around;">
+            <div style="flex: 1 1 320px; max-width: 420px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
+                <h5 style="margin: 0 0 10px 0; color: #4a5568; font-size: 0.95em;">🏢 Usuários por Filial</h5>
+                <div style="height: 220px; position: relative;">
+                    <canvas id="chartFiliais"></canvas>
+                </div>
+            </div>
+            <div style="flex: 1 1 320px; max-width: 420px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
+                <h5 style="margin: 0 0 10px 0; color: #4a5568; font-size: 0.95em;">🔑 Saúde das Senhas (Força)</h5>
+                <div style="height: 220px; position: relative;">
+                    <canvas id="chartSenhas"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- CADASTRO INDIVIDUAL COM CONVITE POR E-MAIL -->
     <div style="background-color: #f0f4f8; padding: 25px; border-radius: 8px; margin-bottom: 30px; border-left: 5px solid var(--navy-blue); box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
@@ -81,13 +129,13 @@
     <h3 class="vw-font" style="color: var(--navy-blue); text-align: left; margin-bottom: 15px;">Equipe Cadastrada ({{ users|length }})</h3>
     
     {% for user in users %}
-        <div class="admin-card" style="flex-direction: column; align-items: stretch; gap: 15px; margin-bottom: 20px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+        <div class="admin-card" style="flex-direction: column; align-items: stretch; gap: 15px; margin-bottom: 20px; background-color: #ffffff; border: 1px solid {% if user.locked_until and user.locked_until > agora %}#feb2b2; background-color: #fffaf0;{% else %}#e2e8f0;{% endif %} border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
                 <div>
                     <strong style="font-size: 1.25em; color: var(--navy-blue);">{{ user.display_name or 'Pendente de Configuração' }}</strong> 
                     <span style="color: #666; font-size: 0.95em;">(<code>{{ user.username }}</code>)</span><br>
                     
-                    <div style="display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
                         <span style="background-color: {% if user.is_admin %}darkred{% else %}var(--navy-blue){% endif %}; color: white; padding: 3px 10px; border-radius: 4px; font-size: 0.8em; font-weight: bold; display: inline-block;">
                             {% if user.is_admin %}🛡️ Administrador{% else %}👤 Funcionário{% endif %}
                         </span>
@@ -105,10 +153,24 @@
                                 ⏳ Primeiro Acesso Pendente
                             </span>
                         {% endif %}
+                        {% if user.locked_until and user.locked_until > agora %}
+                            <span style="font-size: 0.8em; color: #c53030; background-color: #fed7d7; padding: 2px 8px; border-radius: 4px; font-weight: bold;">
+                                ⛔ Bloqueado (5 falhas)
+                            </span>
+                        {% endif %}
                     </div>
                 </div>
 
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <!-- Botão Desbloquear Conta -->
+                    {% if user.locked_until and user.locked_until > agora %}
+                        <form method="POST" action="{{ url_for('admin_desbloquear_usuario', user_id=user.id) }}" style="margin: 0;">
+                            <button type="submit" style="width: auto; padding: 8px 14px; font-size: 0.85em; background-color: #c53030;" title="Desbloquear conta imediatamente">
+                                🔓 Desbloquear
+                            </button>
+                        </form>
+                    {% endif %}
+
                     <!-- Botão Reenviar Convite por E-mail -->
                     {% if user.email %}
                         <form method="POST" action="{{ url_for('reenviar_convite', user_id=user.id) }}" onsubmit="return confirm('Deseja gerar uma nova senha provisória e reenviar o convite por e-mail para {{ user.email }}?');" style="margin: 0;">
@@ -128,6 +190,11 @@
             </div>
             
             <div id="view-mode-{{ user.id }}" style="background-color: #f8fafc; padding: 12px 16px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.9em; display: flex; flex-wrap: wrap; gap: 20px;">
+                <div><span style="color: #718096; font-size: 0.85em;">Unidade:</span><br><strong>{{ user.unit or 'Não preenchido' }}</strong></div>
+                <div><span style="color: #718096; font-size: 0.85em;">Departamento:</span><br><strong>{{ user.department or 'Não preenchido' }}</strong></div>
+                <div><span style="color: #718096; font-size: 0.85em;">Setor:</span><br><strong>{{ user.sector or 'Não preenchido' }}</strong></div>
+                <div><span style="color: #718096; font-size: 0.85em;">IP da Máquina:</span><br><code style="color: darkred; font-size: 1.05em; font-weight: bold;">{{ user.machine_ip or 'Não preenchido' }}</code></div>
+            </div>
                 <div><span style="color: #718096; font-size: 0.85em;">Unidade:</span><br><strong>{{ user.unit or 'Não preenchido' }}</strong></div>
                 <div><span style="color: #718096; font-size: 0.85em;">Departamento:</span><br><strong>{{ user.department or 'Não preenchido' }}</strong></div>
                 <div><span style="color: #718096; font-size: 0.85em;">Setor:</span><br><strong>{{ user.sector or 'Não preenchido' }}</strong></div>
@@ -237,4 +304,66 @@
         this.dataset.manuallyEdited = "true";
     });
 </script>
+
+<!-- Chart.js CDN & Inicialização dos Gráficos -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% if metricas %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // 1. Gráfico de Filiais
+        const ctxFiliais = document.getElementById('chartFiliais');
+        if (ctxFiliais) {
+            new Chart(ctxFiliais, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Campina Grande', 'João Pessoa', 'Outros/Sem Filial'],
+                    datasets: [{
+                        data: [
+                            {{ metricas.users_campina }}, 
+                            {{ metricas.users_jp }}, 
+                            {{ metricas.users_outros }}
+                        ],
+                        backgroundColor: ['#2b6cb0', '#319795', '#cbd5e0'],
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+
+        // 2. Gráfico de Senhas
+        const ctxSenhas = document.getElementById('chartSenhas');
+        if (ctxSenhas) {
+            new Chart(ctxSenhas, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Fracas (Risco)', 'Médias', 'Fortes (Seguras)'],
+                    datasets: [{
+                        data: [
+                            {{ metricas.senhas_fracas }}, 
+                            {{ metricas.senhas_medias }}, 
+                            {{ metricas.senhas_fortes }}
+                        ],
+                        backgroundColor: ['#e53e3e', '#ecc94b', '#38a169'],
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endif %}
 {% endblock %}

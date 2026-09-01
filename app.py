@@ -71,6 +71,12 @@ class User(UserMixin, db.Model):
     unit = db.Column(db.String(100), nullable=True)
     last_login_date = db.Column(db.String(20), nullable=True) # Data no formato YYYY-MM-DD
     last_announcement_view = db.Column(db.DateTime, nullable=True)
+    
+    # Bloqueio por tentativas e auditoria de dispositivo
+    failed_login_attempts = db.Column(db.Integer, default=0)
+    locked_until = db.Column(db.DateTime, nullable=True)
+    last_login_ip = db.Column(db.String(50), nullable=True)
+    last_user_agent = db.Column(db.String(255), nullable=True)
 
 class Announcement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -78,6 +84,8 @@ class Announcement(db.Model):
     content = db.Column(db.Text, nullable=False)
     document_link = db.Column(db.String(500), nullable=True)
     target_unit = db.Column(db.String(50), default='Todas')
+    is_urgent = db.Column(db.Boolean, default=False)
+    publish_at = db.Column(db.DateTime, default=get_br_time)
     created_at = db.Column(db.DateTime, default=get_br_time)
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     
@@ -106,7 +114,21 @@ class SavedPassword(db.Model):
     service_url = db.Column(db.String(255), nullable=True)
     service_username = db.Column(db.String(100), nullable=False)
     encrypted_password = db.Column(db.LargeBinary, nullable=False)
+    encrypted_notes = db.Column(db.LargeBinary, nullable=True)
     created_at = db.Column(db.DateTime, default=get_br_time)
+    
+    shares = db.relationship('SharedPassword', backref='saved_password', cascade='all, delete-orphan')
+
+class SharedPassword(db.Model):
+    """Credenciais compartilhadas entre usuários do sistema."""
+    id = db.Column(db.Integer, primary_key=True)
+    saved_password_id = db.Column(db.Integer, db.ForeignKey('saved_password.id', ondelete='CASCADE'), nullable=False)
+    shared_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    shared_with_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=get_br_time)
+    
+    sender = db.relationship('User', foreign_keys=[shared_by_user_id], backref='shared_by_me')
+    recipient = db.relationship('User', foreign_keys=[shared_with_user_id], backref='shared_with_me')
 
 class PasswordHistory(db.Model):
     """Histórico de alterações de uma credencial salva."""
@@ -164,18 +186,20 @@ def update_user_ip_and_cleanup_avisos():
 @app.context_processor
 def inject_avisos():
     if current_user.is_authenticated:
+        agora = get_br_time()
         if current_user.is_admin or current_user.is_hr:
-            avisos = Announcement.query.order_by(Announcement.created_at.desc()).all()
+            avisos = Announcement.query.order_by(Announcement.is_urgent.desc(), Announcement.created_at.desc()).all()
         else:
             user_unit = (current_user.unit or '').strip()
             avisos = Announcement.query.filter(
+                Announcement.publish_at <= agora,
                 db.or_(
                     Announcement.target_unit == 'Todas',
                     Announcement.target_unit == None,
                     Announcement.target_unit == '',
                     Announcement.target_unit == user_unit
                 )
-            ).order_by(Announcement.created_at.desc()).all()
+            ).order_by(Announcement.is_urgent.desc(), Announcement.created_at.desc()).all()
 
         last_view = current_user.last_announcement_view or datetime.min
         nao_lidos = [a for a in avisos if a.created_at > last_view]
@@ -437,18 +461,57 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         user = User.query.filter_by(username=username).first()
+        
+        if user:
+            # 1. Verifica se a conta está temporariamente bloqueada
+            agora = get_br_time()
+            if user.locked_until and user.locked_until > agora:
+                minutos_restantes = max(1, int((user.locked_until - agora).total_seconds() / 60))
+                registrar_auditoria('LOGIN_BLOQUEADO', f'Tentativa de acesso em conta bloqueada: "{username}". Bloqueio ativo por mais {minutos_restantes} min.')
+                flash(f'Conta temporariamente bloqueada após 5 tentativas incorretas. Tente novamente em {minutos_restantes} minuto(s) ou solicite o desbloqueio ao Administrador de TI.', 'error')
+                return render_template('login.html')
+
         if user and check_password_hash(user.password_hash, password):
+            current_ip = get_client_ip()
+            current_ua = (request.headers.get('User-Agent') or 'Desconhecido')[:250]
+            
+            # 2. Alerta de Segurança por E-mail (se login for de IP ou Navegador diferente do habitual)
+            if user.email and (user.last_login_ip or user.last_user_agent):
+                ip_mudou = user.last_login_ip and user.last_login_ip != current_ip
+                ua_mudou = user.last_user_agent and user.last_user_agent != current_ua
+                if ip_mudou or ua_mudou:
+                    assunto = "⚠️ Alerta de Segurança - Novo Acesso Detectado no GAMAPASS"
+                    corpo = (
+                        f"Olá, {user.display_name or user.username}!\n\n"
+                        f"Identificamos um novo acesso à sua conta no GAMAPASS a partir de um endereço IP ou dispositivo diferente do habitual:\n\n"
+                        f"• Data e Hora: {get_br_time().strftime('%d/%m/%Y às %H:%M')}\n"
+                        f"• Endereço IP: {current_ip}\n"
+                        f"• Dispositivo / Navegador: {current_ua}\n\n"
+                        f"Caso tenha sido você, não se preocupe! Esta é uma notificação automática de segurança.\n"
+                        f"Caso NÃO reconheça este acesso, contate imediatamente o Administrador de TI para redefinir sua senha.\n\n"
+                        f"Atenciosamente,\n"
+                        f"Equipe de Tecnologia da Informação\n"
+                        f"Gama Caminhões"
+                    )
+                    try:
+                        enviar_email_geral(user.email, assunto, corpo)
+                        registrar_auditoria('ALERTA_LOGIN_DISPOSITIVO', f'Alerta de novo acesso (IP: {current_ip}) enviado para {user.email}.')
+                    except Exception as ex:
+                        print(f"[ALERTA EMAIL ERROR]: {ex}")
+
+            # Reseta tentativas e atualiza dados
+            user.failed_login_attempts = 0
+            user.locked_until = None
+            user.last_login_ip = current_ip
+            user.last_user_agent = current_ua
+            user.last_login_date = get_br_time().strftime('%Y-%m-%d')
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
             login_user(user)
             registrar_auditoria('LOGIN', f'Usuário {username} fez login com sucesso.')
-            
-            # Registra a data de acesso (mantém o IP interno da máquina intacto)
-            hoje = datetime.now().strftime('%Y-%m-%d')
-            if user.last_login_date != hoje:
-                user.last_login_date = hoje
-                try:
-                    db.session.commit()
-                except Exception:
-                    db.session.rollback()
             
             if user.requires_password_reset:
                 return redirect(url_for('force_password_reset'))
@@ -456,8 +519,22 @@ def login():
                 return redirect(url_for('first_setup'))
             return redirect(url_for('dashboard'))
         else:
-            registrar_auditoria('LOGIN_FALHA', f'Tentativa de login falhou para usuário: {username}.')
-            flash('Credenciais inválidas. Verifique usuário e senha.', 'error')
+            if user:
+                user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+                if user.failed_login_attempts >= 5:
+                    user.locked_until = get_br_time() + timedelta(minutes=15)
+                    db.session.commit()
+                    registrar_auditoria('CONTA_BLOQUEADA', f'Usuário "{username}" bloqueado por 15 minutos após 5 tentativas incorretas.')
+                    flash('Conta bloqueada por 15 minutos após 5 tentativas incorretas de senha. Contate o Administrador de TI ou aguarde o tempo limite.', 'error')
+                else:
+                    tentativas_restantes = 5 - user.failed_login_attempts
+                    db.session.commit()
+                    registrar_auditoria('LOGIN_FALHA', f'Tentativa de login falhou para usuário: {username} ({user.failed_login_attempts}/5).')
+                    flash(f'Credenciais inválidas. Você tem mais {tentativas_restantes} tentativa(s) antes do bloqueio da conta.', 'error')
+            else:
+                registrar_auditoria('LOGIN_FALHA', f'Tentativa de login falhou para usuário inexistente: {username}.')
+                flash('Credenciais inválidas. Verifique usuário e senha.', 'error')
+                
     return render_template('login.html')
 
 @app.route('/esqueceu-senha', methods=['GET', 'POST'])
@@ -575,12 +652,16 @@ def dashboard():
             return redirect(url_for('dashboard'))
 
         encrypted_pw = cipher_suite.encrypt(service_pass.encode('utf-8'))
+        notes = request.form.get('notes', '').strip()
+        encrypted_notes = cipher_suite.encrypt(notes.encode('utf-8')) if notes else None
+
         new_entry = SavedPassword(
             user_id=current_user.id, 
             service_name=service, 
             service_url=service_url, 
             service_username=service_user, 
-            encrypted_password=encrypted_pw
+            encrypted_password=encrypted_pw,
+            encrypted_notes=encrypted_notes
         )
         db.session.add(new_entry)
         db.session.flush()  # Para obter o ID gerado antes do commit
@@ -599,40 +680,156 @@ def dashboard():
         flash('Credencial salva com sucesso!', 'success')
         return redirect(url_for('dashboard'))
 
-    saved_entries = SavedPassword.query.filter_by(user_id=current_user.id).all()
+    saved_entries = SavedPassword.query.filter_by(user_id=current_user.id).order_by(SavedPassword.id.desc()).all()
     decrypted_entries = []
     for entry in saved_entries:
         try:
             decrypted_pw = cipher_suite.decrypt(entry.encrypted_password).decode('utf-8')
         except Exception:
             decrypted_pw = "[Erro ao descriptografar]"
+            
+        decrypted_notes = ""
+        if entry.encrypted_notes:
+            try:
+                decrypted_notes = cipher_suite.decrypt(entry.encrypted_notes).decode('utf-8')
+            except Exception:
+                decrypted_notes = "[Erro ao descriptografar notas]"
+                
+        shares_info = [{
+            'id': s.id,
+            'recipient_username': s.recipient.username if s.recipient else 'Usuário',
+            'recipient_name': s.recipient.display_name or s.recipient.username if s.recipient else 'Usuário',
+            'created_at': s.created_at.strftime('%d/%m/%Y às %H:%M') if s.created_at else ''
+        } for s in entry.shares]
+
         decrypted_entries.append({
             'id': entry.id, 
             'service_name': entry.service_name, 
             'service_url': entry.service_url, 
             'service_username': entry.service_username, 
-            'password': decrypted_pw
+            'password': decrypted_pw,
+            'notes': decrypted_notes,
+            'shares': shares_info
+        })
+
+    # Credenciais compartilhadas com o usuário atual
+    shared_with_me_records = SharedPassword.query.filter_by(shared_with_user_id=current_user.id).order_by(SharedPassword.id.desc()).all()
+    shared_entries = []
+    for s in shared_with_me_records:
+        entry = s.saved_password
+        if not entry:
+            continue
+        try:
+            decrypted_pw = cipher_suite.decrypt(entry.encrypted_password).decode('utf-8')
+        except Exception:
+            decrypted_pw = "[Erro ao descriptografar]"
+        decrypted_notes = ""
+        if entry.encrypted_notes:
+            try:
+                decrypted_notes = cipher_suite.decrypt(entry.encrypted_notes).decode('utf-8')
+            except Exception:
+                decrypted_notes = ""
+                
+        shared_entries.append({
+            'share_id': s.id,
+            'password_id': entry.id,
+            'service_name': entry.service_name,
+            'service_url': entry.service_url,
+            'service_username': entry.service_username,
+            'password': decrypted_pw,
+            'notes': decrypted_notes,
+            'sender_username': s.sender.username if s.sender else 'Usuário',
+            'sender_name': s.sender.display_name or s.sender.username if s.sender else 'Usuário',
+            'shared_at': s.created_at.strftime('%d/%m/%Y às %H:%M') if s.created_at else ''
         })
         
+    agora = get_br_time()
     if current_user.is_admin or current_user.is_hr:
-        avisos = Announcement.query.order_by(Announcement.created_at.desc()).all()
+        avisos = Announcement.query.order_by(Announcement.is_urgent.desc(), Announcement.created_at.desc()).all()
     else:
         user_unit = (current_user.unit or '').strip()
         avisos = Announcement.query.filter(
+            Announcement.publish_at <= agora,
             db.or_(
                 Announcement.target_unit == 'Todas',
                 Announcement.target_unit == None,
                 Announcement.target_unit == '',
                 Announcement.target_unit == user_unit
             )
-        ).order_by(Announcement.created_at.desc()).all()
+        ).order_by(Announcement.is_urgent.desc(), Announcement.created_at.desc()).all()
     
     # Avisos não lidos
     from datetime import datetime
     last_view = current_user.last_announcement_view or datetime.min
     avisos_nao_lidos = [a for a in avisos if a.created_at > last_view]
         
-    return render_template('dashboard.html', entries=decrypted_entries, avisos=avisos, avisos_nao_lidos=avisos_nao_lidos)
+    return render_template('dashboard.html', 
+        entries=decrypted_entries, 
+        shared_entries=shared_entries,
+        avisos=avisos, 
+        avisos_nao_lidos=avisos_nao_lidos
+    )
+
+@app.route('/compartilhar_senha/<int:pass_id>', methods=['POST'])
+@login_required
+def compartilhar_senha(pass_id):
+    entry = SavedPassword.query.get_or_404(pass_id)
+    if entry.user_id != current_user.id:
+        flash('Acesso negado. Você só pode compartilhar suas próprias credenciais.', 'error')
+        return redirect(url_for('dashboard'))
+        
+    destinatario_username = request.form.get('recipient_username', '').strip()
+    if not destinatario_username:
+        flash('Informe o login do usuário de destino para compartilhar.', 'error')
+        return redirect(url_for('dashboard'))
+        
+    if destinatario_username.lower() == current_user.username.lower():
+        flash('Você não pode compartilhar uma credencial com você mesmo.', 'error')
+        return redirect(url_for('dashboard'))
+        
+    destinatario = User.query.filter(User.username.ilike(destinatario_username)).first()
+    if not destinatario:
+        flash(f'Usuário "{destinatario_username}" não encontrado no sistema.', 'error')
+        return redirect(url_for('dashboard'))
+        
+    # Verifica se já está compartilhado
+    ja_compartilhado = SharedPassword.query.filter_by(
+        saved_password_id=entry.id,
+        shared_with_user_id=destinatario.id
+    ).first()
+    
+    if ja_compartilhado:
+        flash(f'Esta credencial já está compartilhada com "{destinatario.username}".', 'warning')
+        return redirect(url_for('dashboard'))
+        
+    novo_compartilhamento = SharedPassword(
+        saved_password_id=entry.id,
+        shared_by_user_id=current_user.id,
+        shared_with_user_id=destinatario.id
+    )
+    db.session.add(novo_compartilhamento)
+    db.session.commit()
+    
+    registrar_auditoria('SENHA_COMPARTILHADA', f'Usuário "{current_user.username}" compartilhou a credencial "{entry.service_name}" com "{destinatario.username}".')
+    flash(f'Credencial "{entry.service_name}" compartilhada com sucesso com "{destinatario.display_name or destinatario.username}"!', 'success')
+    return redirect(url_for('dashboard'))
+
+@app.route('/revogar_compartilhamento/<int:share_id>', methods=['POST'])
+@login_required
+def revogar_compartilhamento(share_id):
+    share = SharedPassword.query.get_or_404(share_id)
+    if share.shared_by_user_id != current_user.id and share.shared_with_user_id != current_user.id and not current_user.is_admin:
+        flash('Acesso negado.', 'error')
+        return redirect(url_for('dashboard'))
+        
+    service_name = share.saved_password.service_name if share.saved_password else 'Credencial'
+    recipient_name = share.recipient.username if share.recipient else 'usuário'
+    db.session.delete(share)
+    db.session.commit()
+    
+    registrar_auditoria('COMPARTILHAMENTO_REVOGADO', f'Compartilhamento da credencial "{service_name}" com "{recipient_name}" foi revogado.')
+    flash('Compartilhamento revogado com sucesso!', 'success')
+    return redirect(url_for('dashboard'))
 
 @app.route('/editar_senha/<int:pass_id>', methods=['POST'])
 @login_required
@@ -649,6 +846,9 @@ def editar_senha(pass_id):
     nova_senha = request.form.get('service_pass')
     if nova_senha and nova_senha.strip() != '':
         entry.encrypted_password = cipher_suite.encrypt(nova_senha.encode('utf-8'))
+        
+    notes = request.form.get('notes', '').strip()
+    entry.encrypted_notes = cipher_suite.encrypt(notes.encode('utf-8')) if notes else None
 
     try:
         # Registra no histórico
@@ -884,8 +1084,74 @@ def admin_panel():
             
             registrar_auditoria('USUARIO_CRIADO', f'Novo usuário "{username}" ({full_email or "sem email"}) cadastrado pelo admin.')
             return redirect(url_for('admin_panel'))
+
     users = User.query.order_by(User.id.desc()).all()
-    return render_template('admin.html', users=users)
+    
+    # Cálculo de Métricas Gerenciais
+    total_users = len(users)
+    users_campina = sum(1 for u in users if (u.unit or '').strip().lower() == 'campina grande')
+    users_jp = sum(1 for u in users if (u.unit or '').strip().lower() in ['joão pessoa', 'joao pessoa'])
+    users_outros = total_users - (users_campina + users_jp)
+    
+    users_ativos = sum(1 for u in users if not u.is_first_login)
+    taxa_adesao = round((users_ativos / total_users * 100), 1) if total_users > 0 else 0
+    
+    # Auditoria de Força de Senhas Global
+    all_passwords = SavedPassword.query.all()
+    total_senhas = len(all_passwords)
+    senhas_fracas = 0
+    senhas_medias = 0
+    senhas_fortes = 0
+    
+    for p in all_passwords:
+        try:
+            plain = cipher_suite.decrypt(p.encrypted_password).decode('utf-8')
+            score = 0
+            if len(plain) >= 8: score += 1
+            if len(plain) >= 12: score += 1
+            if re.search(r'[A-Z]', plain): score += 1
+            if re.search(r'[a-z]', plain): score += 1
+            if re.search(r'[0-9]', plain): score += 1
+            if re.search(r'[!@#$%*|&_+\-=.,;:?]', plain): score += 1
+            if score <= 2:
+                senhas_fracas += 1
+            elif score in (3, 4):
+                senhas_medias += 1
+            else:
+                senhas_fortes += 1
+        except Exception:
+            pass
+            
+    metricas = {
+        'total_users': total_users,
+        'users_campina': users_campina,
+        'users_jp': users_jp,
+        'users_outros': users_outros,
+        'users_ativos': users_ativos,
+        'taxa_adesao': taxa_adesao,
+        'total_senhas': total_senhas,
+        'senhas_fracas': senhas_fracas,
+        'senhas_medias': senhas_medias,
+        'senhas_fortes': senhas_fortes
+    }
+
+    return render_template('admin.html', users=users, metricas=metricas, agora=get_br_time())
+
+@app.route('/admin/desbloquear_usuario/<int:user_id>', methods=['POST'])
+@login_required
+def admin_desbloquear_usuario(user_id):
+    if not current_user.is_admin:
+        flash('Acesso negado.', 'error')
+        return redirect(url_for('dashboard'))
+        
+    usuario = User.query.get_or_404(user_id)
+    usuario.failed_login_attempts = 0
+    usuario.locked_until = None
+    db.session.commit()
+    
+    registrar_auditoria('USUARIO_DESBLOQUEADO', f'O Administrador "{current_user.username}" desbloqueou manualmente a conta de "{usuario.username}".')
+    flash(f"Conta de '{usuario.username}' desbloqueada com sucesso!", 'success')
+    return redirect(url_for('admin_panel'))
 
 @app.route('/admin/reenviar_convite/<int:user_id>', methods=['GET', 'POST'])
 @login_required
@@ -1032,31 +1298,80 @@ def historico_senha(pass_id):
     from flask import Response as _Response
     return _Response(_json.dumps(resultado, ensure_ascii=False), mimetype='application/json')
 
+def obter_logs_auditoria_filtrados(args):
+    filtro_usuario = args.get('usuario', '').strip()
+    filtro_acao = args.get('acao', '').strip()
+    filtro_unidade = args.get('unidade', '').strip()
+    filtro_departamento = args.get('departamento', '').strip()
+    data_inicio_str = args.get('data_inicio', '').strip()
+    data_fim_str = args.get('data_fim', '').strip()
+
+    query = AuditLog.query
+    
+    if filtro_usuario:
+        query = query.filter(AuditLog.username_at_time.ilike(f'%{filtro_usuario}%'))
+    if filtro_acao:
+        query = query.filter(AuditLog.action == filtro_acao)
+        
+    if data_inicio_str:
+        try:
+            d_ini = datetime.strptime(data_inicio_str, '%Y-%m-%d')
+            query = query.filter(AuditLog.created_at >= d_ini)
+        except Exception:
+            pass
+            
+    if data_fim_str:
+        try:
+            d_fim = datetime.strptime(data_fim_str + " 23:59:59", '%Y-%m-%d %H:%M:%S')
+            query = query.filter(AuditLog.created_at <= d_fim)
+        except Exception:
+            pass
+
+    if filtro_unidade or filtro_departamento:
+        u_query = User.query
+        if filtro_unidade:
+            u_query = u_query.filter(User.unit == filtro_unidade)
+        if filtro_departamento:
+            u_query = u_query.filter(User.department.ilike(f'%{filtro_departamento}%'))
+        matching_users = u_query.all()
+        matching_ids = [u.id for u in matching_users]
+        matching_unames = [u.username for u in matching_users]
+        query = query.filter(
+            db.or_(
+                AuditLog.user_id.in_(matching_ids),
+                AuditLog.username_at_time.in_(matching_unames)
+            )
+        )
+        
+    filtros = {
+        'usuario': filtro_usuario,
+        'acao': filtro_acao,
+        'unidade': filtro_unidade,
+        'departamento': filtro_departamento,
+        'data_inicio': data_inicio_str,
+        'data_fim': data_fim_str
+    }
+    return query, filtros
+
 @app.route('/admin/auditoria')
 @login_required
 def admin_auditoria():
     if not current_user.is_admin:
         return redirect(url_for('dashboard'))
     
-    filtro_usuario = request.args.get('usuario', '').strip()
-    filtro_acao = request.args.get('acao', '').strip()
-    
-    query = AuditLog.query
-    if filtro_usuario:
-        query = query.filter(AuditLog.username_at_time.ilike(f'%{filtro_usuario}%'))
-    if filtro_acao:
-        query = query.filter(AuditLog.action == filtro_acao)
-    
+    query, filtros = obter_logs_auditoria_filtrados(request.args)
     logs = query.order_by(AuditLog.created_at.desc()).limit(500).all()
+    
     usuarios = db.session.query(AuditLog.username_at_time).distinct().all()
     acoes_distintas = db.session.query(AuditLog.action).distinct().all()
+    departamentos = [d[0] for d in db.session.query(User.department).distinct().all() if d[0]]
     
     return render_template('auditoria.html',
         logs=logs,
-        filtro_usuario=filtro_usuario,
-        filtro_acao=filtro_acao,
+        filtros=filtros,
         usuarios=[u[0] for u in usuarios if u[0]],
-        acoes=[a[0] for a in acoes_distintas if a[0]]
+        acoes=[a[0] for a in acoes_distintas if a[0]],
+        departamentos=departamentos
     )
 
 @app.route('/admin/exportar_auditoria')
@@ -1065,7 +1380,9 @@ def exportar_auditoria():
     if not current_user.is_admin:
         return redirect(url_for('dashboard'))
     
-    logs = AuditLog.query.order_by(AuditLog.created_at.desc()).all()
+    query, _ = obter_logs_auditoria_filtrados(request.args)
+    logs = query.order_by(AuditLog.created_at.desc()).all()
+    
     output = io.StringIO()
     writer = csv.writer(output, delimiter=';')
     writer.writerow(['Data/Hora', 'Usuário', 'Ação', 'Detalhes', 'IP'])
@@ -1079,7 +1396,7 @@ def exportar_auditoria():
         ])
     
     resposta = Response(output.getvalue().encode('utf-8-sig'), mimetype='text/csv')
-    resposta.headers["Content-Disposition"] = "attachment; filename=gamapass_auditoria.csv"
+    resposta.headers["Content-Disposition"] = "attachment; filename=gamapass_relatorio_auditoria.csv"
     return resposta
 
 # ================= PAINEL DE RH E AVISOS =================
@@ -1090,8 +1407,8 @@ def rh_panel():
         flash('Acesso negado. Esta área é restrita ao RH ou Administradores.', 'error')
         return redirect(url_for('dashboard'))
     
-    avisos = Announcement.query.order_by(Announcement.created_at.desc()).all()
-    return render_template('rh_panel.html', avisos=avisos)
+    avisos = Announcement.query.order_by(Announcement.is_urgent.desc(), Announcement.created_at.desc()).all()
+    return render_template('rh_panel.html', avisos=avisos, agora=get_br_time())
 
 @app.route('/rh/aviso/novo', methods=['POST'])
 @login_required
@@ -1103,6 +1420,18 @@ def rh_novo_aviso():
     conteudo = request.form.get('conteudo')
     document_link = request.form.get('document_link')
     target_unit = request.form.get('target_unit', 'Todas')
+    is_urgent = request.form.get('is_urgent') == 'on'
+    
+    publish_at_str = request.form.get('publish_at', '').strip()
+    publish_at = get_br_time()
+    if publish_at_str:
+        try:
+            publish_at = datetime.strptime(publish_at_str, '%Y-%m-%dT%H:%M')
+        except Exception:
+            try:
+                publish_at = datetime.fromisoformat(publish_at_str)
+            except Exception:
+                publish_at = get_br_time()
     
     if titulo and conteudo:
         aviso = Announcement(
@@ -1110,7 +1439,9 @@ def rh_novo_aviso():
             content=conteudo, 
             document_link=document_link, 
             author_id=current_user.id,
-            target_unit=target_unit
+            target_unit=target_unit,
+            is_urgent=is_urgent,
+            publish_at=publish_at
         )
         db.session.add(aviso)
         db.session.commit()
@@ -1135,7 +1466,8 @@ def rh_novo_aviso():
                 db.session.add(novo_arq)
                 count += 1
         db.session.commit()
-        registrar_auditoria('AVISO_CRIADO', f'O RH/Admin "{current_user.username}" publicou um novo aviso para "{target_unit}": "{titulo}".')
+        status_msg = "urgente " if is_urgent else ""
+        registrar_auditoria('AVISO_CRIADO', f'O RH/Admin "{current_user.username}" publicou um aviso {status_msg}para "{target_unit}": "{titulo}".')
         flash('Aviso publicado com sucesso!', 'success')
     else:
         flash('Título e conteúdo são obrigatórios.', 'error')
@@ -1153,12 +1485,24 @@ def rh_editar_aviso(aviso_id):
     conteudo = request.form.get('conteudo')
     document_link = request.form.get('document_link')
     target_unit = request.form.get('target_unit', 'Todas')
+    is_urgent = request.form.get('is_urgent') == 'on'
+    
+    publish_at_str = request.form.get('publish_at', '').strip()
+    if publish_at_str:
+        try:
+            aviso.publish_at = datetime.strptime(publish_at_str, '%Y-%m-%dT%H:%M')
+        except Exception:
+            try:
+                aviso.publish_at = datetime.fromisoformat(publish_at_str)
+            except Exception:
+                pass
     
     if titulo and conteudo:
         aviso.title = titulo
         aviso.content = conteudo
         aviso.document_link = document_link
         aviso.target_unit = target_unit
+        aviso.is_urgent = is_urgent
         
         # Opcional: lidar com novos arquivos
         arquivos = request.files.getlist('arquivos')
@@ -1266,7 +1610,11 @@ def inicializar_banco():
                     ('unit', 'VARCHAR(100)'),
                     ('last_login_date', 'VARCHAR(20)'),
                     ('is_hr', 'BOOLEAN DEFAULT FALSE'),
-                    ('last_announcement_view', 'TIMESTAMP')
+                    ('last_announcement_view', 'TIMESTAMP'),
+                    ('failed_login_attempts', 'INTEGER DEFAULT 0'),
+                    ('locked_until', 'TIMESTAMP'),
+                    ('last_login_ip', 'VARCHAR(50)'),
+                    ('last_user_agent', 'VARCHAR(255)')
                 ]
                 
                 for col_name, col_type in columns_to_ensure:
@@ -1278,7 +1626,7 @@ def inicializar_banco():
                         except Exception as ex:
                             print(f"[MIGRATION EXCEPTION] Coluna {col_name}: {ex}")
 
-            # Migração: coluna created_at em saved_password
+            # Migração: colunas em saved_password
             if 'saved_password' in tables:
                 sp_cols = [c['name'] for c in inspector.get_columns('saved_password')]
                 is_postgres = 'postgres' in db.engine.url.drivername or 'postgresql' in str(db.engine.url)
@@ -1290,8 +1638,16 @@ def inicializar_banco():
                             conn.execute(text(f"ALTER TABLE {sp_ref} ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
                     except Exception as ex:
                         print(f"[MIGRATION EXCEPTION] saved_password.created_at: {ex}")
+                if 'encrypted_notes' not in sp_cols:
+                    try:
+                        with db.engine.begin() as conn:
+                            print("[MIGRATION] Adicionando coluna encrypted_notes em saved_password...")
+                            notes_type = 'BYTEA' if is_postgres else 'BLOB'
+                            conn.execute(text(f"ALTER TABLE {sp_ref} ADD COLUMN encrypted_notes {notes_type}"))
+                    except Exception as ex:
+                        print(f"[MIGRATION EXCEPTION] saved_password.encrypted_notes: {ex}")
 
-            # Migração: coluna document_link em announcement
+            # Migração: colunas em announcement
             if 'announcement' in tables:
                 ann_cols = [c['name'] for c in inspector.get_columns('announcement')]
                 is_postgres = 'postgres' in db.engine.url.drivername or 'postgresql' in str(db.engine.url)
@@ -1310,6 +1666,20 @@ def inicializar_banco():
                             conn.execute(text(f"ALTER TABLE {ann_ref} ADD COLUMN target_unit VARCHAR(50) DEFAULT 'Todas'"))
                     except Exception as ex:
                         print(f"[MIGRATION EXCEPTION] announcement.target_unit: {ex}")
+                if 'is_urgent' not in ann_cols:
+                    try:
+                        with db.engine.begin() as conn:
+                            print("[MIGRATION] Adicionando coluna is_urgent em announcement...")
+                            conn.execute(text(f"ALTER TABLE {ann_ref} ADD COLUMN is_urgent BOOLEAN DEFAULT FALSE"))
+                    except Exception as ex:
+                        print(f"[MIGRATION EXCEPTION] announcement.is_urgent: {ex}")
+                if 'publish_at' not in ann_cols:
+                    try:
+                        with db.engine.begin() as conn:
+                            print("[MIGRATION] Adicionando coluna publish_at em announcement...")
+                            conn.execute(text(f"ALTER TABLE {ann_ref} ADD COLUMN publish_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+                    except Exception as ex:
+                        print(f"[MIGRATION EXCEPTION] announcement.publish_at: {ex}")
             # Se não houver nenhum usuário cadastrado no banco, cria o primeiro Admin
             if not User.query.first():
                 admin_user = os.environ.get('INITIAL_ADMIN_USER', 'admin')

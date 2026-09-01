@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}GAMAPASS - Log de Auditoria{% endblock %}
 {% block main_style %}align-items: flex-start; padding-top: 80px;{% endblock %}
 
@@ -6,45 +6,72 @@
 <div class="container" style="max-width: 1100px; width: 100%;">
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid darkred; padding-bottom: 10px; margin-bottom: 25px; flex-wrap: wrap; gap: 10px;">
         <div>
-            <h2 class="vw-font" style="color: darkred; margin: 0; text-align: left;">📋 Log de Auditoria</h2>
-            <small style="color: #666;">Registro completo de todas as ações realizadas no sistema.</small>
+            <h2 class="vw-font" style="color: darkred; margin: 0; text-align: left;">📋 Log de Auditoria & Relatórios</h2>
+            <small style="color: #666;">Auditoria completa de segurança com filtros por período, unidade e departamento.</small>
         </div>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <a href="{{ url_for('exportar_auditoria') }}" style="background-color: #2b7a4b; color: white; padding: 8px 16px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.9em;">📥 Exportar CSV</a>
+            <a href="{{ url_for('exportar_auditoria', usuario=filtros.usuario, acao=filtros.acao, unidade=filtros.unidade, departamento=filtros.departamento, data_inicio=filtros.data_inicio, data_fim=filtros.data_fim) }}" style="background-color: #2b7a4b; color: white; padding: 8px 16px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.9em; display: inline-flex; align-items: center; gap: 6px;">📥 Exportar Relatório Filtrado (CSV)</a>
             <a href="{{ url_for('admin_panel') }}" style="color: var(--navy-blue); font-weight: bold; text-decoration: none; border: 1px solid var(--navy-blue); padding: 8px 15px; border-radius: 4px; font-size: 0.9em;">← Voltar ao Admin</a>
         </div>
     </div>
 
-    <!-- Filtros -->
+    <!-- Filtros Avançados -->
     <form method="GET" action="{{ url_for('admin_auditoria') }}" style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 25px; background-color: #f0f4f8; padding: 15px; border-radius: 8px; align-items: flex-end;">
-        <div style="flex: 1 1 200px;">
-            <label style="display: block; font-size: 0.85em; font-weight: bold; color: var(--navy-blue); margin-bottom: 4px;">Filtrar por Usuário</label>
-            <select name="usuario" style="width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 4px; background: white;">
+        <div style="flex: 1 1 140px;">
+            <label style="display: block; font-size: 0.85em; font-weight: bold; color: var(--navy-blue); margin-bottom: 4px;">Data Início</label>
+            <input type="date" name="data_inicio" value="{{ filtros.data_inicio }}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; background: white; font-size: 0.9em;">
+        </div>
+        <div style="flex: 1 1 140px;">
+            <label style="display: block; font-size: 0.85em; font-weight: bold; color: var(--navy-blue); margin-bottom: 4px;">Data Fim</label>
+            <input type="date" name="data_fim" value="{{ filtros.data_fim }}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; background: white; font-size: 0.9em;">
+        </div>
+        <div style="flex: 1 1 150px;">
+            <label style="display: block; font-size: 0.85em; font-weight: bold; color: var(--navy-blue); margin-bottom: 4px;">Filial / Unidade</label>
+            <select name="unidade" style="width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 4px; background: white; font-size: 0.9em;">
+                <option value="">Todas as Unidades</option>
+                <option value="Campina Grande" {% if filtros.unidade == 'Campina Grande' %}selected{% endif %}>Campina Grande</option>
+                <option value="João Pessoa" {% if filtros.unidade == 'João Pessoa' %}selected{% endif %}>João Pessoa</option>
+            </select>
+        </div>
+        <div style="flex: 1 1 150px;">
+            <label style="display: block; font-size: 0.85em; font-weight: bold; color: var(--navy-blue); margin-bottom: 4px;">Departamento</label>
+            <select name="departamento" style="width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 4px; background: white; font-size: 0.9em;">
+                <option value="">Todos</option>
+                {% for dep in departamentos %}
+                    <option value="{{ dep }}" {% if filtros.departamento == dep %}selected{% endif %}>{{ dep }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="flex: 1 1 150px;">
+            <label style="display: block; font-size: 0.85em; font-weight: bold; color: var(--navy-blue); margin-bottom: 4px;">Usuário</label>
+            <select name="usuario" style="width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 4px; background: white; font-size: 0.9em;">
                 <option value="">Todos os usuários</option>
                 {% for u in usuarios %}
-                    <option value="{{ u }}" {% if filtro_usuario == u %}selected{% endif %}>{{ u }}</option>
+                    <option value="{{ u }}" {% if filtros.usuario == u %}selected{% endif %}>{{ u }}</option>
                 {% endfor %}
             </select>
         </div>
-        <div style="flex: 1 1 200px;">
-            <label style="display: block; font-size: 0.85em; font-weight: bold; color: var(--navy-blue); margin-bottom: 4px;">Filtrar por Ação</label>
-            <select name="acao" style="width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 4px; background: white;">
+        <div style="flex: 1 1 150px;">
+            <label style="display: block; font-size: 0.85em; font-weight: bold; color: var(--navy-blue); margin-bottom: 4px;">Tipo de Ação</label>
+            <select name="acao" style="width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 4px; background: white; font-size: 0.9em;">
                 <option value="">Todas as ações</option>
                 {% for a in acoes %}
-                    <option value="{{ a }}" {% if filtro_acao == a %}selected{% endif %}>{{ a }}</option>
+                    <option value="{{ a }}" {% if filtros.acao == a %}selected{% endif %}>{{ a }}</option>
                 {% endfor %}
             </select>
         </div>
-        <div style="display: flex; gap: 8px;">
+        <div style="display: flex; gap: 8px; margin-top: 10px;">
             <button type="submit" style="width: auto; padding: 9px 20px; background-color: var(--navy-blue); font-size: 0.9em;">🔍 Filtrar</button>
             <a href="{{ url_for('admin_auditoria') }}" style="width: auto; padding: 9px 14px; background-color: #6c757d; color: white; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.9em; display: flex; align-items: center;">✕ Limpar</a>
         </div>
     </form>
 
-    <p style="font-size: 0.9em; color: #555; margin-bottom: 15px;">Exibindo <strong>{{ logs|length }}</strong> registro(s) {% if filtro_usuario or filtro_acao %}(filtrado){% endif %}.</p>
+    <p style="font-size: 0.9em; color: #555; margin-bottom: 15px;">
+        Exibindo <strong>{{ logs|length }}</strong> registro(s) {% if filtros.usuario or filtros.acao or filtros.unidade or filtros.departamento or filtros.data_inicio or filtros.data_fim %}(com filtros ativos){% endif %}.
+    </p>
 
     {% if logs %}
-    <div style="overflow-x: auto;">
+    <div style="overflow-x: auto; background: white; border: 1px solid #e2e8f0; border-radius: 6px;">
         <table class="audit-table">
             <thead>
                 <tr>
@@ -74,8 +101,8 @@
     </div>
     {% else %}
         <div style="text-align: center; padding: 40px; color: #999;">
-            <p style="font-size: 1.2em;">📭 Nenhum registro encontrado.</p>
-            <p style="font-size: 0.9em;">As ações dos usuários aparecerão aqui à medida que o sistema for utilizado.</p>
+            <p style="font-size: 1.2em;">📭 Nenhum registro encontrado para estes filtros.</p>
+            <p style="font-size: 0.9em;">Tente ajustar as datas ou remover filtros específicos.</p>
         </div>
     {% endif %}
 </div>
@@ -87,13 +114,15 @@
 .audit-table tr:hover td { background-color: #f7fafc; }
 .audit-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.78em; font-weight: bold; text-transform: uppercase; white-space: nowrap; }
 .audit-badge-login { background: #c6f6d5; color: #22543d; }
-.audit-badge-login_falha { background: #fed7d7; color: #742a2a; }
+.audit-badge-login_falha, .audit-badge-login_bloqueado, .audit-badge-conta_bloqueada { background: #fed7d7; color: #742a2a; }
 .audit-badge-logout { background: #e2e8f0; color: #4a5568; }
-.audit-badge-senha_criada { background: #bee3f8; color: #2a4365; }
-.audit-badge-senha_editada { background: #fefcbf; color: #744210; }
+.audit-badge-senha_criada, .audit-badge-senha_compartilhada { background: #bee3f8; color: #2a4365; }
+.audit-badge-senha_editada, .audit-badge-compartilhamento_revogado { background: #fefcbf; color: #744210; }
 .audit-badge-senha_removida { background: #fed7d7; color: #742a2a; }
-.audit-badge-usuario_criado { background: #c6f6d5; color: #22543d; }
+.audit-badge-usuario_criado, .audit-badge-usuario_desbloqueado { background: #c6f6d5; color: #22543d; }
 .audit-badge-usuario_editado { background: #fefcbf; color: #744210; }
 .audit-badge-usuario_removido { background: #fed7d7; color: #742a2a; }
+.audit-badge-alerta_login_dispositivo { background: #feebc8; color: #7b341e; }
+.audit-badge-aviso_criado { background: #e9d8fd; color: #44337a; }
 </style>
 {% endblock %}
