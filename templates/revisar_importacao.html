@@ -1,41 +1,113 @@
 {% extends "base.html" %}
-{% block title %}GAMAPASS - Revisar Importação{% endblock %}
-{% block main_style %}align-items: flex-start; padding-top: 80px;{% endblock %}
+{% block title %}GAMAPASS - Revisar Importação de Senhas{% endblock %}
+{% block main_style %}align-items: center; padding-top: 50px;{% endblock %}
 
 {% block content %}
-<div class="container" style="max-width: 800px; width: 100%;">
-    <h2 class="vw-font" style="color: var(--navy-blue); margin-bottom: 10px;">Revisar Importação</h2>
-    <p style="margin-bottom: 30px;">Identificamos as credenciais abaixo no seu arquivo. <strong>Defina o nome do serviço para cada uma delas.</strong> Se quiser descartar uma credencial, basta deixar o nome do serviço em branco.</p>
-
-    <!-- O formulário envia matrizes (arrays) para o Python usando o colchete '[]' no nome -->
-    <form method="POST" action="{{ url_for('salvar_importacao') }}">
-        
-        {% for item in senhas %}
-        <div class="password-card" style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; background-color: #f9f9f9; padding: 15px; border: 1px solid #ccc; border-radius: 6px;">
-            
-            <div style="flex: 1 1 200px;">
-                <label style="font-weight: bold; font-size: 0.9em; color: darkred;">Nome do Serviço (Obrigatório):</label>
-                <input type="text" name="servicos[]" value="{{ item.sugestao_servico }}" placeholder="Ex: Syonet, E-mail..." required style="width: 100%; padding: 10px; border: 2px solid darkred; border-radius: 4px; outline: none;">
+<div class="container" style="max-width: 900px; width: 100%; margin: 0 auto; padding: 20px;">
+    <div style="background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); padding: 25px 30px; border-top: 5px solid var(--navy-blue);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;">
+            <div>
+                <h2 class="vw-font" style="color: var(--navy-blue); margin: 0; font-size: 1.6em;">📥 Revisar Importação de Credenciais</h2>
+                <p style="color: #666; margin: 5px 0 0 0; font-size: 0.95em;">
+                    Identificamos <strong>{{ senhas|length }}</strong> credencial(is) no seu arquivo. Verifique os dados abaixo antes de salvar no seu cofre seguro.
+                </p>
             </div>
-            
-            <div style="flex: 1 1 200px;">
-                <label style="font-weight: bold; font-size: 0.9em;">Usuário / Login Identificado:</label>
-                <!-- Este campo é 'readonly' para o usuário não quebrar a lógica de extração, mas é enviado no formulário -->
-                <input type="text" name="usuarios[]" value="{{ item.usuario }}" readonly style="width: 100%; padding: 10px; background-color: #e9ecef; border: 1px solid #ccc; border-radius: 4px; color: #555;">
+            <span style="background: #ebf8ff; color: #2b6cb0; border: 1px solid #bee3f8; padding: 6px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold;">
+                🌐 Compatível com Todos os Navegadores
+            </span>
+        </div>
+
+        <form method="POST" action="{{ url_for('salvar_importacao') }}" id="form-importar">
+            <div id="lista-credenciais" style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px;">
+                {% for item in senhas %}
+                <div class="card-importacao" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.03); transition: transform 0.15s;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #edf2f7; padding-bottom: 8px;">
+                        <span style="font-weight: bold; color: #2d3748; font-size: 0.95em; display: flex; align-items: center; gap: 6px;">
+                            🔑 Registro #{{ loop.index }}
+                        </span>
+                        <button type="button" onclick="removerCard(this)" style="background: #fed7d7; color: #9b2c2c; border: none; border-radius: 4px; padding: 4px 10px; font-size: 0.8em; font-weight: bold; cursor: pointer;" title="Descartar esta credencial">
+                            ✕ Descartar
+                        </button>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                        <div>
+                            <label style="font-size: 0.82em; font-weight: bold; color: #4a5568; display: block; margin-bottom: 4px;">
+                                Nome do Serviço / Sistema: <span style="color: #e53e3e;">*</span>
+                            </label>
+                            <input type="text" name="servicos[]" value="{{ item.servico }}" placeholder="Ex: Syonet, E-mail..." required 
+                                style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; box-sizing: border-box; font-size: 0.9em;">
+                        </div>
+
+                        <div>
+                            <label style="font-size: 0.82em; font-weight: bold; color: #4a5568; display: block; margin-bottom: 4px;">
+                                Usuário / Login / E-mail:
+                            </label>
+                            <input type="text" name="usuarios[]" value="{{ item.usuario }}" placeholder="Ex: marcos.silva" 
+                                style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; box-sizing: border-box; font-size: 0.9em;">
+                        </div>
+
+                        <div>
+                            <label style="font-size: 0.82em; font-weight: bold; color: #4a5568; display: block; margin-bottom: 4px;">
+                                URL / Endereço Web:
+                            </label>
+                            <input type="text" name="urls[]" value="{{ item.url }}" placeholder="https://..." 
+                                style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; box-sizing: border-box; font-size: 0.9em;">
+                        </div>
+
+                        <div>
+                            <label style="font-size: 0.82em; font-weight: bold; color: #4a5568; display: block; margin-bottom: 4px;">
+                                Senha Identificada:
+                            </label>
+                            <div style="position: relative;">
+                                <input type="password" name="senhas[]" value="{{ item.senha }}" required 
+                                    style="width: 100%; padding: 8px 36px 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; box-sizing: border-box; font-size: 0.9em;">
+                                <button type="button" onclick="toggleVisibilidadeSenha(this)" 
+                                    style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #718096; font-size: 0.95em;">
+                                    👁️
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <input type="hidden" name="notas[]" value="{{ item.notas or '' }}">
+                </div>
+                {% endfor %}
             </div>
 
-            <!-- Campos ocultos de segurança para trafegar a senha e a URL até o banco sem exibir na tela -->
-            <input type="hidden" name="senhas[]" value="{{ item.senha }}">
-            <input type="hidden" name="urls[]" value="{{ item.url }}">
-            
-        </div>
-        {% endfor %}
-
-        <div style="display: flex; gap: 15px; margin-top: 30px;">
-            <button type="submit" style="background-color: var(--navy-blue); color: white; border: none; border-radius: 6px; padding: 12px 25px; flex: 1; font-weight: bold; cursor: pointer;">💾 Salvar Todas as Senhas</button>
-            <a href="{{ url_for('dashboard') }}" class="btn-secondary" style="padding: 12px 25px; flex: 1; text-align: center; text-decoration: none; border-radius: 6px;">Cancelar Importação</a>
-        </div>
-        
-    </form>
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 25px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+                <button type="submit" style="background-color: var(--navy-blue); color: white; border: none; border-radius: 6px; padding: 12px 25px; flex: 2; min-width: 200px; font-weight: bold; font-size: 1em; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.15);">
+                    💾 Confirmar e Salvar no Cofre
+                </button>
+                <a href="{{ url_for('dashboard') }}" class="btn-secondary" style="padding: 12px 20px; flex: 1; min-width: 150px; text-align: center; text-decoration: none; border-radius: 6px; background: #e2e8f0; color: #4a5568; font-weight: bold;">
+                    Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
 </div>
+
+<script>
+    function removerCard(btn) {
+        const card = btn.closest('.card-importacao');
+        if (card) {
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.95)';
+            setTimeout(() => card.remove(), 150);
+        }
+    }
+
+    function toggleVisibilidadeSenha(btn) {
+        const input = btn.previousElementSibling;
+        if (input) {
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.textContent = '🙈';
+            } else {
+                input.type = 'password';
+                btn.textContent = '👁️';
+            }
+        }
+    }
+</script>
 {% endblock %}

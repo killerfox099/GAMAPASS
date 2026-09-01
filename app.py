@@ -954,6 +954,68 @@ def delete_password(pass_id):
 
 
 # ================= IMPORTAÇÃO & EXPORTAÇÃO CSV =================
+def extrair_nome_servico_url(url, fallback=""):
+    if not url:
+        return fallback or "Serviço Web"
+    try:
+        u = url.strip()
+        if not u.startswith(('http://', 'https://')):
+            u = 'https://' + u
+        parsed = urlparse(u)
+        host = parsed.netloc or parsed.path
+        host = host.split(':')[0]
+        partes = host.split('.')
+        if len(partes) >= 2:
+            if partes[0].lower() in ['www', 'login', 'accounts', 'auth', 'app', 'portal', 'web', 'mail', 'm', 'poc']:
+                return partes[1].capitalize()
+            elif len(partes) >= 3 and partes[-2].lower() in ['com', 'org', 'net', 'gov', 'edu', 'ind', 'br', 'io', 'app']:
+                return partes[-3].capitalize()
+            else:
+                return partes[0].capitalize()
+        return host.capitalize()
+    except Exception:
+        return fallback or url
+
+def classificar_coluna_csv(col_raw):
+    col = str(col_raw).strip().lower().replace('_', '').replace(' ', '').replace('-', '').replace('"', '')
+    
+    # 1. Ignorar metadados e colunas que contenham termos enganosos (ex: timepasswordchanged, formActionOrigin)
+    if any(ign in col for ign in ['time', 'date', 'changed', 'created', 'used', 'guid', 'realm', 'origin', 'favorite', 'reprompt', 'otp', 'totp', 'action']):
+        if col not in ['datadecadastro']:
+            return 'ignorar'
+            
+    # 2. Senha (Password)
+    if col in ['password', 'senha', 'pass', 'loginpassword', 'pwd']:
+        return 'password'
+        
+    # 3. Usuário / Login / Email
+    if col in ['username', 'usuario', 'usuário', 'login', 'loginusername', 'loginname', 'user', 'email', 'e-mail', 'account']:
+        return 'username'
+        
+    # 4. URL / Link / Site
+    if col in ['url', 'link', 'website', 'loginuri', 'uri', 'site', 'origem', 'hostname']:
+        return 'url'
+        
+    # 5. Nome do Serviço / Título
+    if col in ['name', 'title', 'titulo', 'título', 'servico', 'serviço', 'service', 'nome', 'accountname', 'grouping', 'folder']:
+        return 'service'
+        
+    # 6. Notas / Observações
+    if col in ['note', 'notes', 'notas', 'observacoes', 'observações', 'comments', 'extra']:
+        return 'notes'
+        
+    # Fallbacks flexíveis
+    if 'pass' in col or 'senha' in col:
+        return 'password'
+    if 'user' in col or 'usuario' in col or 'login' in col:
+        return 'username'
+    if 'url' in col or 'link' in col or 'site' in col:
+        return 'url'
+    if 'serv' in col or 'title' in col or 'name' in col or 'titul' in col:
+        return 'service'
+        
+    return 'desconhecido'
+
 @app.route('/importar-csv', methods=['POST'])
 @login_required
 def importar_csv():
@@ -969,56 +1031,62 @@ def importar_csv():
     try:
         conteudo = arquivo.stream.read().decode("utf-8-sig", errors="ignore")
         primeira_linha = conteudo.split('\n')[0]
-        separador = ';' if primeira_linha.count(';') >= primeira_linha.count(',') else ','
+        separador = ';' if primeira_linha.count(';') > primeira_linha.count(',') else ','
+        if '\t' in primeira_linha and primeira_linha.count('\t') > max(primeira_linha.count(','), primeira_linha.count(';')):
+            separador = '\t'
             
         stream = io.StringIO(conteudo, newline=None)
         csv_input = csv.DictReader(stream, delimiter=separador)
         senhas_extraidas = []
 
         for row in csv_input:
-            senha_limpa = ''
+            senha = ''
             usuario = ''
             url = ''
-            dado_perdido = '' 
+            servico = ''
+            notas = ''
             
             for chave, valor in row.items():
-                if not chave or not valor: 
+                if not chave or valor is None:
                     continue
-                k = str(chave).strip().lower()
                 v = str(valor).strip()
+                tipo = classificar_coluna_csv(chave)
                 
-                if 'senha' in k or 'password' in k or 'pass' in k:
-                    senha_limpa = v
-                elif 'usuário' in k or 'usuario' in k or 'user' in k or 'login' in k or 'email' in k or 'e-mail' in k:
+                if tipo == 'password':
+                    senha = v
+                elif tipo == 'username':
                     usuario = v
-                elif 'url' in k or 'link' in k:
+                elif tipo == 'url':
                     url = v
-                elif 'serviço' in k or 'servico' in k or 'name' in k or 'site' in k:
-                    dado_perdido = v
+                elif tipo == 'service':
+                    servico = v
+                elif tipo == 'notes':
+                    notas = v
 
-            if not senha_limpa:
+            if not senha:
                 continue
 
-            if not usuario and dado_perdido:
-                usuario = dado_perdido
-            if not usuario:
-                usuario = "N/A"
+            if not servico and url:
+                servico = extrair_nome_servico_url(url)
+            elif not servico:
+                servico = "Serviço Web"
 
             senhas_extraidas.append({
+                'servico': servico,
                 'usuario': usuario,
-                'senha': senha_limpa,
+                'senha': senha,
                 'url': url,
-                'sugestao_servico': dado_perdido if not (not usuario and dado_perdido) else ''
+                'notas': notas
             })
 
         if len(senhas_extraidas) == 0:
-            flash('Nenhuma senha identificada no arquivo.', 'warning')
+            flash('Nenhuma credencial ou senha válida foi identificada no arquivo CSV.', 'warning')
             return redirect(url_for('dashboard'))
             
         return render_template('revisar_importacao.html', senhas=senhas_extraidas)
         
     except Exception as e:
-        flash(f'Erro ao ler arquivo: {e}', 'error')
+        flash(f'Erro ao processar arquivo CSV: {e}', 'error')
         return redirect(url_for('dashboard'))
 
 @app.route('/salvar-importacao', methods=['POST'])
@@ -1028,16 +1096,19 @@ def salvar_importacao():
     usuarios = request.form.getlist('usuarios[]')
     senhas = request.form.getlist('senhas[]')
     urls = request.form.getlist('urls[]')
+    notas_list = request.form.getlist('notas[]')
     
     senhas_salvas = 0
+    senhas_duplicadas = 0
     try:
         for i in range(len(servicos)):
             servico = servicos[i].strip()
-            usuario = usuarios[i].strip()
-            senha = senhas[i]
+            usuario = usuarios[i].strip() if i < len(usuarios) else ''
+            senha = senhas[i] if i < len(senhas) else ''
             url = urls[i].strip() if i < len(urls) else ''
+            nota = notas_list[i].strip() if i < len(notas_list) else ''
             
-            if not servico:
+            if not servico or not senha:
                 continue
                 
             duplicado = SavedPassword.query.filter_by(
@@ -1046,21 +1117,40 @@ def salvar_importacao():
                 service_username=usuario
             ).first()
             if duplicado:
+                senhas_duplicadas += 1
                 continue
                 
             senha_criptografada = cipher_suite.encrypt(senha.encode('utf-8'))
+            encrypted_notes = cipher_suite.encrypt(nota.encode('utf-8')) if nota else None
+            
             nova_senha = SavedPassword(
                 user_id=current_user.id, 
                 service_name=servico, 
                 service_username=usuario, 
                 encrypted_password=senha_criptografada, 
-                service_url=url
+                service_url=url,
+                encrypted_notes=encrypted_notes
             )
             db.session.add(nova_senha)
+            db.session.flush()
+            
+            # Registra no histórico
+            hist = PasswordHistory(
+                saved_password_id=nova_senha.id,
+                user_id=current_user.id,
+                service_name=servico,
+                action='importada',
+                changed_by=current_user.username
+            )
+            db.session.add(hist)
             senhas_salvas += 1
             
         db.session.commit()
-        flash(f'{senhas_salvas} credenciais validadas e salvas com sucesso!', 'success')
+        msg = f'{senhas_salvas} credenciais importadas e protegidas no cofre com sucesso!'
+        if senhas_duplicadas > 0:
+            msg += f' ({senhas_duplicadas} credenciais já existiam no cofre e foram mantidas sem duplicar).'
+        flash(msg, 'success')
+        registrar_auditoria('IMPORTACAO_CSV', f'{senhas_salvas} credenciais importadas via CSV por "{current_user.username}".')
     except Exception as e:
         db.session.rollback()
         flash(f'Erro ao salvar senhas: {e}', 'error')
