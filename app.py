@@ -6,7 +6,8 @@ import ssl
 import smtplib
 import random
 import string
-from datetime import datetime
+from urllib.parse import urlparse
+from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 from flask import Flask, Response, render_template, redirect, url_for, request, flash, send_file
 from flask_sqlalchemy import SQLAlchemy
@@ -1857,7 +1858,8 @@ def inicializar_banco():
                     try:
                         with db.engine.begin() as conn:
                             print("[MIGRATION] Adicionando coluna created_at em saved_password...")
-                            conn.execute(text(f"ALTER TABLE {sp_ref} ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+                            ts_clause = "DEFAULT CURRENT_TIMESTAMP" if is_postgres else ""
+                            conn.execute(text(f"ALTER TABLE {sp_ref} ADD COLUMN created_at TIMESTAMP {ts_clause}"))
                     except Exception as ex:
                         print(f"[MIGRATION EXCEPTION] saved_password.created_at: {ex}")
                 if 'encrypted_notes' not in sp_cols:
@@ -1899,7 +1901,8 @@ def inicializar_banco():
                     try:
                         with db.engine.begin() as conn:
                             print("[MIGRATION] Adicionando coluna publish_at em announcement...")
-                            conn.execute(text(f"ALTER TABLE {ann_ref} ADD COLUMN publish_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+                            pub_clause = "DEFAULT CURRENT_TIMESTAMP" if is_postgres else ""
+                            conn.execute(text(f"ALTER TABLE {ann_ref} ADD COLUMN publish_at TIMESTAMP {pub_clause}"))
                     except Exception as ex:
                         print(f"[MIGRATION EXCEPTION] announcement.publish_at: {ex}")
             # Se não houver nenhum usuário cadastrado no banco, cria o primeiro Admin
@@ -1931,9 +1934,12 @@ def internal_server_error(e):
 def page_not_found(e):
     return redirect(url_for('dashboard' if current_user.is_authenticated else 'login'))
 
-# Inicializa o banco (Roda no gunicorn durante o import)
-with app.app_context():
-    inicializar_banco()
+# Inicializa o banco (Roda no gunicorn com segurança)
+try:
+    with app.app_context():
+        inicializar_banco()
+except Exception as e:
+    print(f"[ERRO CRÍTICO NA INICIALIZAÇÃO DO BANCO]: {e}")
 
 if __name__ == '__main__':
     porta = int(os.environ.get('PORT', 5000))
