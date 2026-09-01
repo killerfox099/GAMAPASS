@@ -339,31 +339,45 @@ def disparar_email_smtp(destinatario, msg):
     return False, erro_detalhe
 
 def enviar_email_geral(destinatario, assunto, corpo):
-    """Envia por API HTTPS (Resend/Brevo) se configurado, ou por SMTP como fallback."""
-    resend_key = os.environ.get('RESEND_API_KEY', '').strip()
-    if resend_key:
-        sucesso, msg_resend = enviar_via_resend(destinatario, assunto, corpo)
+    """Tenta enviar via SMTP (Gmail/Outlook/Skymail) ou API (Brevo/Resend) com fallback em cascata."""
+    erros = []
+    
+    # 1. Se EMAIL_SENHA estiver configurado, tenta primeiro o SMTP direto (ex: Gmail com Senha de App)
+    senha_email = os.environ.get('EMAIL_SENHA', '').strip()
+    remetente = os.environ.get('EMAIL_REMETENTE', '').strip()
+    
+    if senha_email and senha_email != 'EMPTY_PASS' and remetente and remetente != 'email_padrao@empresa.com.br':
+        msg = MIMEText(corpo, 'plain', 'utf-8')
+        msg['Subject'] = assunto
+        msg['From'] = f"GAMAPASS - Gama Caminhões <{remetente}>"
+        msg['To'] = destinatario
+        msg['Reply-To'] = remetente
+        
+        sucesso, msg_smtp = disparar_email_smtp(destinatario, msg)
         if sucesso:
-            return True, msg_resend
-        else:
-            return False, f"Resend API: {msg_resend}"
-            
+            return True, msg_smtp
+        erros.append(f"SMTP ({msg_smtp})")
+
+    # 2. Se falhar ou não tiver SMTP, tenta Brevo (se configurado)
     brevo_key = os.environ.get('BREVO_API_KEY', '').strip()
     if brevo_key:
         sucesso, msg_brevo = enviar_via_brevo(destinatario, assunto, corpo)
         if sucesso:
             return True, msg_brevo
-        else:
-            return False, f"Brevo API: {msg_brevo}"
+        erros.append(f"Brevo ({msg_brevo})")
 
-    remetente = os.environ.get('EMAIL_REMETENTE', "email_padrao@empresa.com.br").strip()
-    msg = MIMEText(corpo, 'plain', 'utf-8')
-    msg['Subject'] = assunto
-    msg['From'] = f"GAMAPASS - Gama Caminhões <{remetente}>"
-    msg['To'] = destinatario
-    msg['Reply-To'] = remetente
+    # 3. Tenta Resend (se configurado)
+    resend_key = os.environ.get('RESEND_API_KEY', '').strip()
+    if resend_key:
+        sucesso, msg_resend = enviar_via_resend(destinatario, assunto, corpo)
+        if sucesso:
+            return True, msg_resend
+        erros.append(f"Resend ({msg_resend})")
 
-    return disparar_email_smtp(destinatario, msg)
+    if not erros:
+        return False, "Nenhum método de envio configurado (defina EMAIL_REMETENTE e EMAIL_SENHA no Render)."
+        
+    return False, " | ".join(erros)
 
 
 def enviar_email_recuperacao(destinatario, nova_senha):
