@@ -57,7 +57,11 @@
                         <div style="display: flex; flex-direction: column; gap: 12px;">
                             {% for aviso in global_avisos %}
                             <div style="background: white; border-left: 4px solid #ecc94b; padding: 10px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                                <h5 style="margin: 0 0 5px 0; color: #744210; font-size: 0.95em; font-family: inherit;">{{ aviso.title }}
+                                <h5 style="margin: 0 0 5px 0; color: #744210; font-size: 0.95em; font-family: inherit;">
+                                    {{ aviso.title }}
+                                    {% if aviso.target_unit and aviso.target_unit != 'Todas' %}
+                                        <span style="font-size: 0.72em; padding: 1px 6px; border-radius: 3px; font-weight: bold; margin-left: 4px; {% if aviso.target_unit == 'Campina Grande' %}background: #feebc8; color: #7b341e;{% else %}background: #bee3f8; color: #2c5282;{% endif %}">{{ aviso.target_unit }}</span>
+                                    {% endif %}
                                     {% if aviso in global_avisos_nao_lidos %}<span class="global-nova-flag" style="color: #e53e3e; font-size: 0.75em; margin-left: 5px; font-weight: bold;">(NOVO)</span>{% endif %}
                                 </h5>
                                 <p style="margin: 0; font-size: 0.85em; color: #555; white-space: pre-wrap; font-family: inherit;">{{ aviso.content }}</p>

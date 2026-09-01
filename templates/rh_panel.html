@@ -26,6 +26,14 @@
                 <input type="text" name="titulo" placeholder="Ex: Campanha de Vacinação, Feriado..." required style="width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #ccc;">
             </div>
             <div style="margin-bottom: 15px;">
+                <label style="display: block; font-size: 0.9em; font-weight: bold; color: var(--navy-blue); margin-bottom: 5px;">Direcionar para Unidade</label>
+                <select name="target_unit" required style="width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #ccc; background: white; font-size: 0.95em;">
+                    <option value="Todas" selected>🏢 Ambas as Unidades (Geral)</option>
+                    <option value="Campina Grande">📍 Apenas Campina Grande</option>
+                    <option value="João Pessoa">📍 Apenas João Pessoa</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 15px;">
                 <label style="display: block; font-size: 0.9em; font-weight: bold; color: var(--navy-blue); margin-bottom: 5px;">Conteúdo / Mensagem</label>
                 <textarea name="conteudo" rows="4" placeholder="Escreva a mensagem aqui..." required style="width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit;"></textarea>
             </div>
@@ -55,7 +63,17 @@
                 
                 <!-- View Mode -->
                 <div id="view-aviso-{{ aviso.id }}">
-                    <h4 style="margin: 0 0 10px 0; color: #2d3748; padding-right: 150px;">{{ aviso.title }}</h4>
+                    <h4 style="margin: 0 0 10px 0; color: #2d3748; padding-right: 150px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span>{{ aviso.title }}</span>
+                        <span style="font-size: 0.72em; padding: 2px 8px; border-radius: 4px; font-weight: bold;
+                            {% if aviso.target_unit == 'Campina Grande' %}background: #feebc8; color: #7b341e;
+                            {% elif aviso.target_unit == 'João Pessoa' %}background: #bee3f8; color: #2c5282;
+                            {% else %}background: #e2e8f0; color: #4a5568;{% endif %}">
+                            {% if aviso.target_unit == 'Campina Grande' %}📍 Campina Grande
+                            {% elif aviso.target_unit == 'João Pessoa' %}📍 João Pessoa
+                            {% else %}🏢 Ambas as Unidades{% endif %}
+                        </span>
+                    </h4>
                     <p style="margin: 0 0 10px 0; font-size: 0.95em; color: #4a5568; white-space: pre-wrap;">{{ aviso.content }}</p>
                     
                     {% if aviso.document_link or aviso.files %}
@@ -89,6 +107,14 @@
                         <div style="margin-bottom: 10px;">
                             <label style="display: block; font-size: 0.85em; font-weight: bold; color: var(--navy-blue);">Título</label>
                             <input type="text" name="titulo" value="{{ aviso.title }}" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <label style="display: block; font-size: 0.85em; font-weight: bold; color: var(--navy-blue);">Direcionar para Unidade</label>
+                            <select name="target_unit" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; background: white; font-size: 0.9em;">
+                                <option value="Todas" {% if not aviso.target_unit or aviso.target_unit == 'Todas' %}selected{% endif %}>🏢 Ambas as Unidades (Geral)</option>
+                                <option value="Campina Grande" {% if aviso.target_unit == 'Campina Grande' %}selected{% endif %}>📍 Apenas Campina Grande</option>
+                                <option value="João Pessoa" {% if aviso.target_unit == 'João Pessoa' %}selected{% endif %}>📍 Apenas João Pessoa</option>
+                            </select>
                         </div>
                         <div style="margin-bottom: 10px;">
                             <label style="display: block; font-size: 0.85em; font-weight: bold; color: var(--navy-blue);">Conteúdo</label>

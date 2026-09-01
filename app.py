@@ -77,6 +77,7 @@ class Announcement(db.Model):
     title = db.Column(db.String(150), nullable=False)
     content = db.Column(db.Text, nullable=False)
     document_link = db.Column(db.String(500), nullable=True)
+    target_unit = db.Column(db.String(50), default='Todas')
     created_at = db.Column(db.DateTime, default=get_br_time)
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     
@@ -163,7 +164,19 @@ def update_user_ip_and_cleanup_avisos():
 @app.context_processor
 def inject_avisos():
     if current_user.is_authenticated:
-        avisos = Announcement.query.order_by(Announcement.created_at.desc()).all()
+        if current_user.is_admin or current_user.is_hr:
+            avisos = Announcement.query.order_by(Announcement.created_at.desc()).all()
+        else:
+            user_unit = (current_user.unit or '').strip()
+            avisos = Announcement.query.filter(
+                db.or_(
+                    Announcement.target_unit == 'Todas',
+                    Announcement.target_unit == None,
+                    Announcement.target_unit == '',
+                    Announcement.target_unit == user_unit
+                )
+            ).order_by(Announcement.created_at.desc()).all()
+
         last_view = current_user.last_announcement_view or datetime.min
         nao_lidos = [a for a in avisos if a.created_at > last_view]
         return dict(global_avisos=avisos, global_avisos_nao_lidos=nao_lidos)
@@ -601,7 +614,18 @@ def dashboard():
             'password': decrypted_pw
         })
         
-    avisos = Announcement.query.order_by(Announcement.created_at.desc()).all()
+    if current_user.is_admin or current_user.is_hr:
+        avisos = Announcement.query.order_by(Announcement.created_at.desc()).all()
+    else:
+        user_unit = (current_user.unit or '').strip()
+        avisos = Announcement.query.filter(
+            db.or_(
+                Announcement.target_unit == 'Todas',
+                Announcement.target_unit == None,
+                Announcement.target_unit == '',
+                Announcement.target_unit == user_unit
+            )
+        ).order_by(Announcement.created_at.desc()).all()
     
     # Avisos não lidos
     from datetime import datetime
@@ -1078,9 +1102,16 @@ def rh_novo_aviso():
     titulo = request.form.get('titulo')
     conteudo = request.form.get('conteudo')
     document_link = request.form.get('document_link')
+    target_unit = request.form.get('target_unit', 'Todas')
     
     if titulo and conteudo:
-        aviso = Announcement(title=titulo, content=conteudo, document_link=document_link, author_id=current_user.id)
+        aviso = Announcement(
+            title=titulo, 
+            content=conteudo, 
+            document_link=document_link, 
+            author_id=current_user.id,
+            target_unit=target_unit
+        )
         db.session.add(aviso)
         db.session.commit()
         
@@ -1104,7 +1135,7 @@ def rh_novo_aviso():
                 db.session.add(novo_arq)
                 count += 1
         db.session.commit()
-        registrar_auditoria('AVISO_CRIADO', f'O RH/Admin "{current_user.username}" publicou um novo aviso: "{titulo}".')
+        registrar_auditoria('AVISO_CRIADO', f'O RH/Admin "{current_user.username}" publicou um novo aviso para "{target_unit}": "{titulo}".')
         flash('Aviso publicado com sucesso!', 'success')
     else:
         flash('Título e conteúdo são obrigatórios.', 'error')
@@ -1121,11 +1152,13 @@ def rh_editar_aviso(aviso_id):
     titulo = request.form.get('titulo')
     conteudo = request.form.get('conteudo')
     document_link = request.form.get('document_link')
+    target_unit = request.form.get('target_unit', 'Todas')
     
     if titulo and conteudo:
         aviso.title = titulo
         aviso.content = conteudo
         aviso.document_link = document_link
+        aviso.target_unit = target_unit
         
         # Opcional: lidar com novos arquivos
         arquivos = request.files.getlist('arquivos')
@@ -1270,6 +1303,13 @@ def inicializar_banco():
                             conn.execute(text(f"ALTER TABLE {ann_ref} ADD COLUMN document_link VARCHAR(500)"))
                     except Exception as ex:
                         print(f"[MIGRATION EXCEPTION] announcement.document_link: {ex}")
+                if 'target_unit' not in ann_cols:
+                    try:
+                        with db.engine.begin() as conn:
+                            print("[MIGRATION] Adicionando coluna target_unit em announcement...")
+                            conn.execute(text(f"ALTER TABLE {ann_ref} ADD COLUMN target_unit VARCHAR(50) DEFAULT 'Todas'"))
+                    except Exception as ex:
+                        print(f"[MIGRATION EXCEPTION] announcement.target_unit: {ex}")
             # Se não houver nenhum usuário cadastrado no banco, cria o primeiro Admin
             if not User.query.first():
                 admin_user = os.environ.get('INITIAL_ADMIN_USER', 'admin')
