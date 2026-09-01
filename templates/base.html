@@ -38,40 +38,73 @@
         {% if current_user.is_authenticated %}
         <div style="position: relative;">
             <button type="button" id="global-bell-btn" title="Notificações e Avisos" onclick="toggleGlobalNotificacoes()"
-                style="padding: 8px 12px; font-size: 0.9em; background-color: #f6e05e; color: #744210; border-radius: 20px; font-weight: bold; display: flex; align-items: center; gap: 5px; border: none; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                style="padding: 8px 12px; font-size: 0.9em; background-color: #f6e05e; color: #744210; border-radius: 20px; font-weight: bold; display: flex; align-items: center; gap: 5px; border: none; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: transform 0.2s;">
                 🔔 
-                {% if global_avisos_nao_lidos %}
-                    <span id="global-badge-notificacoes" style="background-color: #e53e3e; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.8em; line-height: 1;">{{ global_avisos_nao_lidos|length }}</span>
-                {% endif %}
+                <span id="global-badge-notificacoes" style="{% if not global_total_nao_lidos %}display:none;{% endif %} background-color: #e53e3e; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.8em; line-height: 1;">
+                    {{ global_total_nao_lidos }}
+                </span>
             </button>
             
-            <div id="global-mural-dropdown" style="display: none; position: absolute; left: 0; top: 110%; width: 350px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1001; overflow: hidden; text-align: left;">
+            <div id="global-mural-dropdown" style="display: none; position: absolute; left: 0; top: 110%; width: 360px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); z-index: 1001; overflow: hidden; text-align: left;">
                 <div style="background: #fff8e1; border-bottom: 1px solid #f6e05e; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center;">
-                    <h4 style="margin: 0; color: #b7791f; display: flex; align-items: center; gap: 8px; font-family: inherit;">
-                        <span>📌</span> Mural de Avisos
+                    <h4 style="margin: 0; color: #b7791f; display: flex; align-items: center; gap: 8px; font-family: inherit; font-size: 1em;">
+                        <span>🔔</span> Central de Notificações
                     </h4>
                     <button onclick="toggleGlobalNotificacoes()" style="background: none; border: none; font-size: 1.2em; color: #a0aec0; cursor: pointer;">&times;</button>
                 </div>
-                <div style="max-height: 350px; overflow-y: auto; padding: 15px; background: #fafafa;">
-                    {% if global_avisos %}
-                        <div style="display: flex; flex-direction: column; gap: 12px;">
-                            {% for aviso in global_avisos %}
-                            <div style="background: white; border-left: 4px solid #ecc94b; padding: 10px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                                <h5 style="margin: 0 0 5px 0; color: #744210; font-size: 0.95em; font-family: inherit;">
-                                    {{ aviso.title }}
-                                    {% if aviso.target_unit and aviso.target_unit != 'Todas' %}
-                                        <span style="font-size: 0.72em; padding: 1px 6px; border-radius: 3px; font-weight: bold; margin-left: 4px; {% if aviso.target_unit == 'Campina Grande' %}background: #feebc8; color: #7b341e;{% else %}background: #bee3f8; color: #2c5282;{% endif %}">{{ aviso.target_unit }}</span>
-                                    {% endif %}
-                                    {% if aviso in global_avisos_nao_lidos %}<span class="global-nova-flag" style="color: #e53e3e; font-size: 0.75em; margin-left: 5px; font-weight: bold;">(NOVO)</span>{% endif %}
-                                </h5>
-                                <p style="margin: 0; font-size: 0.85em; color: #555; white-space: pre-wrap; font-family: inherit;">{{ aviso.content }}</p>
-                                <div style="font-size: 0.7em; color: #a0aec0; margin-top: 5px; text-align: right;">{{ aviso.created_at.strftime('%d/%m %H:%M') }}</div>
-                            </div>
-                            {% endfor %}
+
+                <!-- Lista de Notificações e Avisos -->
+                <div id="global-notifs-container" style="max-height: 350px; overflow-y: auto; padding: 12px; background: #fafafa; display: flex; flex-direction: column; gap: 10px;">
+                    <!-- Notificações Diretas de Senha/Sistema -->
+                    {% for notif in global_user_notifs %}
+                        <div style="background: white; border-left: 4px solid {% if notif.notification_type == 'shared_password_updated' %}#3182ce{% else %}#38a169{% endif %}; padding: 10px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                            <h5 style="margin: 0 0 4px 0; color: #2d3748; font-size: 0.9em; font-family: inherit; display: flex; justify-content: space-between;">
+                                <span>{% if notif.notification_type == 'shared_password_updated' %}🔄{% else %}🔑{% endif %} {{ notif.title }}</span>
+                                {% if not notif.is_read %}<span class="global-nova-flag" style="color: #e53e3e; font-size: 0.75em; font-weight: bold;">(NOVO)</span>{% endif %}
+                            </h5>
+                            <p style="margin: 0; font-size: 0.82em; color: #4a5568; white-space: pre-wrap; font-family: inherit;">{{ notif.message }}</p>
+                            <div style="font-size: 0.7em; color: #a0aec0; margin-top: 4px; text-align: right;">{{ notif.created_at.strftime('%d/%m %H:%M') if notif.created_at else '' }}</div>
                         </div>
-                    {% else %}
-                        <p style="color: #718096; font-size: 0.9em; margin: 0; text-align: center; font-style: italic;">Nenhum aviso no momento.</p>
+                    {% endfor %}
+
+                    <!-- Avisos do RH -->
+                    {% for aviso in global_avisos %}
+                        <div style="background: white; border-left: 4px solid {% if aviso.is_urgent %}#e53e3e{% else %}#ecc94b{% endif %}; padding: 10px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                            <h5 style="margin: 0 0 4px 0; color: #744210; font-size: 0.9em; font-family: inherit;">
+                                {% if aviso.is_urgent %}<span style="background: #e53e3e; color: white; font-size: 0.7em; padding: 1px 5px; border-radius: 3px;">URGENTE</span>{% endif %}
+                                {{ aviso.title }}
+                                {% if aviso.target_unit and aviso.target_unit != 'Todas' %}
+                                    <span style="font-size: 0.72em; padding: 1px 6px; border-radius: 3px; font-weight: bold; margin-left: 4px; {% if aviso.target_unit == 'Campina Grande' %}background: #feebc8; color: #7b341e;{% else %}background: #bee3f8; color: #2c5282;{% endif %}">{{ aviso.target_unit }}</span>
+                                {% endif %}
+                                {% if aviso in global_avisos_nao_lidos %}<span class="global-nova-flag" style="color: #e53e3e; font-size: 0.75em; margin-left: 5px; font-weight: bold;">(NOVO)</span>{% endif %}
+                            </h5>
+                            <p style="margin: 0; font-size: 0.82em; color: #555; white-space: pre-wrap; font-family: inherit;">{{ aviso.content }}</p>
+                            <div style="font-size: 0.7em; color: #a0aec0; margin-top: 4px; text-align: right;">{{ aviso.created_at.strftime('%d/%m %H:%M') }}</div>
+                        </div>
+                    {% endfor %}
+
+                    {% if not global_user_notifs and not global_avisos %}
+                        <p style="color: #718096; font-size: 0.85em; margin: 15px 0; text-align: center; font-style: italic;">Nenhuma notificação no momento.</p>
                     {% endif %}
+                </div>
+
+                <!-- Painel de Configuração de Som de Notificação -->
+                <div style="background: #edf2f7; border-top: 1px solid #cbd5e0; padding: 10px 12px; font-size: 0.82em; display: flex; flex-direction: column; gap: 6px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: bold; color: #2d3748; display: flex; align-items: center; gap: 4px;">
+                            🔊 Som do Alerta:
+                        </span>
+                        <button type="button" onclick="testarSomAtual()" style="background: #2b6cb0; color: white; border: none; border-radius: 4px; padding: 3px 8px; font-size: 0.85em; cursor: pointer; font-weight: bold;">
+                            ▶ Testar
+                        </button>
+                    </div>
+                    <select id="select-som-notificacao" onchange="salvarEscolhaSom(this.value)" style="width: 100%; padding: 6px; border: 1px solid #cbd5e0; border-radius: 4px; background: white; font-size: 0.9em;">
+                        <option value="sino">🔔 Sino / Chime Suave (Padrão)</option>
+                        <option value="dingdong">🎵 Ding-Dong Moderno</option>
+                        <option value="pop">⚡ Pop Discreto (Curto)</option>
+                        <option value="triade">🎺 Tríade Positiva (Alegre)</option>
+                        <option value="silencioso">🔕 Silencioso (Mudo)</option>
+                    </select>
                 </div>
             </div>
         </div>
@@ -122,7 +155,196 @@
         document.addEventListener('focusin', showWarningIfInput);
         document.addEventListener('focusout', function() { capsWarning.style.display = 'none'; });
 
-        // Global Notificacoes
+        // ===================== SÍNTESE DE ÁUDIO DE NOTIFICAÇÃO =====================
+        function tocarAvisoSonoro(tipoForcado) {
+            const somEscolhido = tipoForcado || localStorage.getItem('gamapass_sound_choice') || 'sino';
+            if (somEscolhido === 'silencioso') return;
+
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+
+                if (somEscolhido === 'sino') {
+                    // Chime suave e límpido
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(880, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.8);
+                } else if (somEscolhido === 'dingdong') {
+                    // Tom duplo harmônico Ding-Dong
+                    const now = ctx.currentTime;
+                    // Ding
+                    const osc1 = ctx.createOscillator();
+                    const gain1 = ctx.createGain();
+                    osc1.type = 'sine';
+                    osc1.frequency.setValueAtTime(659.25, now);
+                    gain1.gain.setValueAtTime(0.3, now);
+                    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+                    osc1.connect(gain1);
+                    gain1.connect(ctx.destination);
+                    osc1.start(now);
+                    osc1.stop(now + 0.35);
+                    // Dong
+                    const osc2 = ctx.createOscillator();
+                    const gain2 = ctx.createGain();
+                    osc2.type = 'sine';
+                    osc2.frequency.setValueAtTime(523.25, now + 0.22);
+                    gain2.gain.setValueAtTime(0.35, now + 0.22);
+                    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+                    osc2.connect(gain2);
+                    gain2.connect(ctx.destination);
+                    osc2.start(now + 0.22);
+                    osc2.stop(now + 0.8);
+                } else if (somEscolhido === 'pop') {
+                    // Pop minimalista
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.12);
+                    gain.gain.setValueAtTime(0.4, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.12);
+                } else if (somEscolhido === 'triade') {
+                    // Tríade ascendente alegre
+                    const notas = [523.25, 659.25, 783.99];
+                    notas.forEach((freq, i) => {
+                        const t = ctx.currentTime + (i * 0.11);
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(freq, t);
+                        gain.gain.setValueAtTime(0.25, t);
+                        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(t);
+                        osc.stop(t + 0.35);
+                    });
+                }
+            } catch (e) {
+                console.log("Audio WebAPI:", e);
+            }
+        }
+
+        function salvarEscolhaSom(tipo) {
+            localStorage.setItem('gamapass_sound_choice', tipo);
+        }
+
+        function testarSomAtual() {
+            const select = document.getElementById('select-som-notificacao');
+            const som = select ? select.value : (localStorage.getItem('gamapass_sound_choice') || 'sino');
+            tocarAvisoSonoro(som);
+        }
+
+        // Carrega som salvo na inicialização
+        document.addEventListener("DOMContentLoaded", () => {
+            const salvo = localStorage.getItem('gamapass_sound_choice') || 'sino';
+            const select = document.getElementById('select-som-notificacao');
+            if (select) select.value = salvo;
+        });
+
+        // ===================== SINCRONIZAÇÃO EM TEMPO REAL =====================
+        let lastKnownUnseen = {{ global_total_nao_lidos|default(0) }};
+        let lastKnownTimestamp = 0;
+
+        function sincronizarNotificacoesTempoReal() {
+            fetch('/api/notificacoes_status')
+                .then(r => r.json())
+                .then(data => {
+                    const badge = document.getElementById('global-badge-notificacoes');
+                    const bell = document.getElementById('global-bell-btn');
+                    
+                    // Se chegaram notificações novas
+                    if (data.total_unseen > lastKnownUnseen || (data.latest_timestamp > lastKnownTimestamp && data.total_unseen > 0)) {
+                        tocarAvisoSonoro();
+                        
+                        // Animação de pulso no sino
+                        if (bell) {
+                            bell.style.transform = 'scale(1.25)';
+                            setTimeout(() => { bell.style.transform = 'scale(1)'; }, 350);
+                        }
+                    }
+                    
+                    lastKnownUnseen = data.total_unseen;
+                    lastKnownTimestamp = data.latest_timestamp;
+                    
+                    // Atualiza Badge
+                    if (badge) {
+                        if (data.total_unseen > 0) {
+                            badge.textContent = data.total_unseen;
+                            badge.style.display = 'inline-block';
+                        } else {
+                            badge.style.display = 'none';
+                        }
+                    }
+                    
+                    // Renderiza itens atualizados no dropdown
+                    if (data.items) {
+                        renderizarDropdownNotificacoes(data.items);
+                    }
+                })
+                .catch(() => {});
+        }
+
+        function renderizarDropdownNotificacoes(items) {
+            const container = document.getElementById('global-notifs-container');
+            if (!container) return;
+            
+            if (!items || items.length === 0) {
+                container.innerHTML = '<p style="color: #718096; font-size: 0.85em; margin: 15px 0; text-align: center; font-style: italic;">Nenhuma notificação no momento.</p>';
+                return;
+            }
+            
+            let html = '';
+            items.forEach(it => {
+                if (it.type === 'user_notif') {
+                    const borda = it.notification_type === 'shared_password_updated' ? '#3182ce' : '#38a169';
+                    const icon = it.notification_type === 'shared_password_updated' ? '🔄' : '🔑';
+                    html += `
+                    <div style="background: white; border-left: 4px solid ${borda}; padding: 10px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <h5 style="margin: 0 0 4px 0; color: #2d3748; font-size: 0.9em; font-family: inherit; display: flex; justify-content: space-between;">
+                            <span>${icon} ${it.title}</span>
+                            ${it.is_new ? '<span class="global-nova-flag" style="color: #e53e3e; font-size: 0.75em; font-weight: bold;">(NOVO)</span>' : ''}
+                        </h5>
+                        <p style="margin: 0; font-size: 0.82em; color: #4a5568; white-space: pre-wrap; font-family: inherit;">${it.message}</p>
+                        <div style="font-size: 0.7em; color: #a0aec0; margin-top: 4px; text-align: right;">${it.time}</div>
+                    </div>`;
+                } else {
+                    const borda = it.is_urgent ? '#e53e3e' : '#ecc94b';
+                    const badgeUrgente = it.is_urgent ? '<span style="background: #e53e3e; color: white; font-size: 0.7em; padding: 1px 5px; border-radius: 3px;">URGENTE</span> ' : '';
+                    const badgeUnidade = it.unit ? `<span style="font-size: 0.72em; padding: 1px 6px; border-radius: 3px; font-weight: bold; margin-left: 4px; background: #bee3f8; color: #2c5282;">${it.unit}</span>` : '';
+                    html += `
+                    <div style="background: white; border-left: 4px solid ${borda}; padding: 10px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <h5 style="margin: 0 0 4px 0; color: #744210; font-size: 0.9em; font-family: inherit;">
+                            ${badgeUrgente}${it.title}${badgeUnidade}
+                            ${it.is_new ? '<span class="global-nova-flag" style="color: #e53e3e; font-size: 0.75em; margin-left: 5px; font-weight: bold;">(NOVO)</span>' : ''}
+                        </h5>
+                        <p style="margin: 0; font-size: 0.82em; color: #555; white-space: pre-wrap; font-family: inherit;">${it.message}</p>
+                        <div style="font-size: 0.7em; color: #a0aec0; margin-top: 4px; text-align: right;">${it.time}</div>
+                    </div>`;
+                }
+            });
+            container.innerHTML = html;
+        }
+
+        // Polling leve a cada 8 segundos
+        {% if current_user.is_authenticated %}
+            setInterval(sincronizarNotificacoesTempoReal, 8000);
+        {% endif %}
+
+        // Global Notificacoes Dropdown Toggle
         function toggleGlobalNotificacoes() {
             const dropdown = document.getElementById('global-mural-dropdown');
             const badge = document.getElementById('global-badge-notificacoes');
@@ -130,11 +352,12 @@
             
             if (dropdown.style.display === 'none' || dropdown.style.display === '') {
                 dropdown.style.display = 'block';
-                if (badge) {
+                if (badge && badge.style.display !== 'none') {
                     fetch("{{ url_for('marcar_avisos_lidos') }}", { method: 'POST' })
                         .then(r => {
                             if (r.ok) {
                                 badge.style.display = 'none';
+                                lastKnownUnseen = 0;
                                 setTimeout(() => { flags.forEach(f => f.style.display = 'none'); }, 3000);
                             }
                         });

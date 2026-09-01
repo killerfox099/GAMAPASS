@@ -140,6 +140,18 @@ class PasswordHistory(db.Model):
     changed_by = db.Column(db.String(100), nullable=True)
     changed_at = db.Column(db.DateTime, default=get_br_time)
 
+class UserNotification(db.Model):
+    """Notificações diretas para o usuário (ex: alteração de senha compartilhada)."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    title = db.Column(db.String(150), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    notification_type = db.Column(db.String(50), default='info') # 'shared_password_updated', 'shared_password_new', 'announcement', 'security'
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=get_br_time)
+    
+    user = db.relationship('User', backref=db.backref('user_notifications', lazy='dynamic', cascade='all, delete-orphan'))
+
 class AuditLog(db.Model):
     """Log de auditoria global do sistema."""
     id = db.Column(db.Integer, primary_key=True)
@@ -203,8 +215,20 @@ def inject_avisos():
 
         last_view = current_user.last_announcement_view or datetime.min
         nao_lidos = [a for a in avisos if a.created_at > last_view]
-        return dict(global_avisos=avisos, global_avisos_nao_lidos=nao_lidos)
-    return dict(global_avisos=[], global_avisos_nao_lidos=[])
+        
+        # Notificações individuais do usuário
+        user_notifs = UserNotification.query.filter_by(user_id=current_user.id).order_by(UserNotification.created_at.desc()).limit(15).all()
+        nao_lidos_user = [n for n in user_notifs if not n.is_read]
+        
+        total_nao_lidos = len(nao_lidos) + len(nao_lidas_user)
+        
+        return dict(
+            global_avisos=avisos, 
+            global_avisos_nao_lidos=nao_lidos,
+            global_user_notifs=user_notifs,
+            global_total_nao_lidos=total_nao_lidos
+        )
+    return dict(global_avisos=[], global_avisos_nao_lidos=[], global_user_notifs=[], global_total_nao_lidos=0)
 
 def registrar_auditoria(action, details=None):
     """Registra um evento no log de auditoria do sistema."""
@@ -808,6 +832,16 @@ def compartilhar_senha(pass_id):
         shared_with_user_id=destinatario.id
     )
     db.session.add(novo_compartilhamento)
+    
+    # Cria notificação individual para o destinatário
+    remetente_nome = current_user.display_name or current_user.username
+    notif = UserNotification(
+        user_id=destinatario.id,
+        title=f"Nova Credencial: {entry.service_name}",
+        message=f"{remetente_nome} compartilhou com você o acesso ao serviço '{entry.service_name}'.",
+        notification_type='shared_password_new'
+    )
+    db.session.add(notif)
     db.session.commit()
     
     registrar_auditoria('SENHA_COMPARTILHADA', f'Usuário "{current_user.username}" compartilhou a credencial "{entry.service_name}" com "{destinatario.username}".')
@@ -860,6 +894,34 @@ def editar_senha(pass_id):
             changed_by=current_user.username
         )
         db.session.add(hist)
+        
+        # Notifica todos os membros que possuem acesso compartilhado a esta credencial
+        if entry.shares:
+            remetente_nome = current_user.display_name or current_user.username
+            for share in entry.shares:
+                notif = UserNotification(
+                    user_id=share.shared_with_user_id,
+                    title=f"Senha Atualizada: {entry.service_name}",
+                    message=f"A credencial do serviço '{entry.service_name}' compartilhada por {remetente_nome} foi alterada.",
+                    notification_type='shared_password_updated'
+                )
+                db.session.add(notif)
+                
+                # Disparo de e-mail informativo se o destinatário tiver e-mail
+                if share.recipient and share.recipient.email:
+                    assunto_email = f"🔔 Atualização de Credencial Compartilhada - {entry.service_name}"
+                    corpo_email = (
+                        f"Olá, {share.recipient.display_name or share.recipient.username}!\n\n"
+                        f"Informamos que os dados de acesso da credencial do serviço \"{entry.service_name}\" compartilhada por {remetente_nome} no GAMAPASS foram atualizados.\n\n"
+                        f"Os novos dados já podem ser consultados no cofre na seção 'Credenciais Compartilhadas Comigo'.\n\n"
+                        f"Atenciosamente,\n"
+                        f"GAMAPASS - Gama Caminhões"
+                    )
+                    try:
+                        enviar_email_geral(share.recipient.email, assunto_email, corpo_email)
+                    except Exception as ex:
+                        print(f"[EMAIL NOTIF ERROR]: {ex}")
+
         db.session.commit()
         registrar_auditoria('SENHA_EDITADA', f'Credencial do serviço "{entry.service_name}" foi editada.')
         flash('Credencial atualizada com sucesso!', 'success')
@@ -1552,10 +1614,80 @@ def rh_deletar_aviso(aviso_id):
     flash('Aviso removido com sucesso!', 'success')
     return redirect(url_for('rh_panel'))
 
+@app.route('/api/notificacoes_status')
+@login_required
+def api_notificacoes_status():
+    agora = get_br_time()
+    
+    # 1. Avisos aplicáveis
+    if current_user.is_admin or current_user.is_hr:
+        avisos = Announcement.query.order_by(Announcement.is_urgent.desc(), Announcement.created_at.desc()).all()
+    else:
+        user_unit = (current_user.unit or '').strip()
+        avisos = Announcement.query.filter(
+            Announcement.publish_at <= agora,
+            db.or_(
+                Announcement.target_unit == 'Todas',
+                Announcement.target_unit == None,
+                Announcement.target_unit == '',
+                Announcement.target_unit == user_unit
+            )
+        ).order_by(Announcement.is_urgent.desc(), Announcement.created_at.desc()).all()
+        
+    last_view = current_user.last_announcement_view or datetime.min
+    avisos_nao_lidos = [a for a in avisos if a.created_at > last_view]
+    
+    # 2. Notificações diretas do usuário
+    user_notifs = UserNotification.query.filter_by(user_id=current_user.id).order_by(UserNotification.created_at.desc()).limit(15).all()
+    unread_user_notifs = [n for n in user_notifs if not n.is_read]
+    
+    total_unseen = len(avisos_nao_lidos) + len(unread_user_notifs)
+    
+    latest_timestamp = 0
+    for a in avisos_nao_lidos:
+        if a.created_at:
+            latest_timestamp = max(latest_timestamp, int(a.created_at.timestamp()))
+    for n in unread_user_notifs:
+        if n.created_at:
+            latest_timestamp = max(latest_timestamp, int(n.created_at.timestamp()))
+            
+    items = []
+    # Notificações pessoais
+    for n in user_notifs:
+        items.append({
+            'type': 'user_notif',
+            'id': n.id,
+            'title': n.title,
+            'message': n.message,
+            'is_new': not n.is_read,
+            'is_urgent': False,
+            'unit': None,
+            'time': n.created_at.strftime('%d/%m %H:%M') if n.created_at else ''
+        })
+    # Avisos do RH
+    for a in avisos:
+        items.append({
+            'type': 'announcement',
+            'id': a.id,
+            'title': a.title,
+            'message': a.content,
+            'is_new': a.created_at > last_view if a.created_at else False,
+            'is_urgent': a.is_urgent,
+            'unit': a.target_unit if a.target_unit != 'Todas' else None,
+            'time': a.created_at.strftime('%d/%m %H:%M') if a.created_at else ''
+        })
+        
+    return {
+        'total_unseen': total_unseen,
+        'latest_timestamp': latest_timestamp,
+        'items': items
+    }
+
 @app.route('/api/marcar_avisos_lidos', methods=['POST'])
 @login_required
 def marcar_avisos_lidos():
     current_user.last_announcement_view = get_br_time()
+    UserNotification.query.filter_by(user_id=current_user.id, is_read=False).update({'is_read': True})
     db.session.commit()
     return {'status': 'ok'}
 
