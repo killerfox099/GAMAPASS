@@ -198,37 +198,40 @@ def update_user_ip_and_cleanup_avisos():
 
 @app.context_processor
 def inject_avisos():
-    if current_user.is_authenticated:
-        agora = get_br_time()
-        if current_user.is_admin or current_user.is_hr:
-            avisos = Announcement.query.order_by(Announcement.is_urgent.desc(), Announcement.created_at.desc()).all()
-        else:
-            user_unit = (current_user.unit or '').strip()
-            avisos = Announcement.query.filter(
-                Announcement.publish_at <= agora,
-                db.or_(
-                    Announcement.target_unit == 'Todas',
-                    Announcement.target_unit == None,
-                    Announcement.target_unit == '',
-                    Announcement.target_unit == user_unit
-                )
-            ).order_by(Announcement.is_urgent.desc(), Announcement.created_at.desc()).all()
+    try:
+        if current_user and getattr(current_user, 'is_authenticated', False):
+            agora = get_br_time()
+            if getattr(current_user, 'is_admin', False) or getattr(current_user, 'is_hr', False):
+                avisos = Announcement.query.order_by(Announcement.is_urgent.desc(), Announcement.created_at.desc()).all()
+            else:
+                user_unit = (getattr(current_user, 'unit', '') or '').strip()
+                avisos = Announcement.query.filter(
+                    Announcement.publish_at <= agora,
+                    db.or_(
+                        Announcement.target_unit == 'Todas',
+                        Announcement.target_unit == None,
+                        Announcement.target_unit == '',
+                        Announcement.target_unit == user_unit
+                    )
+                ).order_by(Announcement.is_urgent.desc(), Announcement.created_at.desc()).all()
 
-        last_view = current_user.last_announcement_view or datetime.min
-        nao_lidos = [a for a in avisos if a.created_at > last_view]
-        
-        # Notificações individuais do usuário
-        user_notifs = UserNotification.query.filter_by(user_id=current_user.id).order_by(UserNotification.created_at.desc()).limit(15).all()
-        nao_lidos_user = [n for n in user_notifs if not n.is_read]
-        
-        total_nao_lidos = len(nao_lidos) + len(nao_lidas_user)
-        
-        return dict(
-            global_avisos=avisos, 
-            global_avisos_nao_lidos=nao_lidos,
-            global_user_notifs=user_notifs,
-            global_total_nao_lidos=total_nao_lidos
-        )
+            last_view = getattr(current_user, 'last_announcement_view', None) or datetime.min
+            nao_lidos = [a for a in avisos if a.created_at and a.created_at > last_view]
+            
+            # Notificações individuais do usuário
+            user_notifs = UserNotification.query.filter_by(user_id=current_user.id).order_by(UserNotification.created_at.desc()).limit(15).all()
+            nao_lidos_user = [n for n in user_notifs if not n.is_read]
+            
+            total_nao_lidos = len(nao_lidos) + len(nao_lidos_user)
+            
+            return dict(
+                global_avisos=avisos, 
+                global_avisos_nao_lidos=nao_lidos,
+                global_user_notifs=user_notifs,
+                global_total_nao_lidos=total_nao_lidos
+            )
+    except Exception as ex:
+        print(f"[AVISO inject_avisos]: {ex}")
     return dict(global_avisos=[], global_avisos_nao_lidos=[], global_user_notifs=[], global_total_nao_lidos=0)
 
 def registrar_auditoria(action, details=None):
