@@ -462,24 +462,9 @@
                         </div>
                     {% endfor %}
 
-                    <!-- 2. Notificações do Sistema -->
-                    {% for notif in global_user_notifs %}
-                        <div style="border: 2px solid #3b82f6; border-radius: 6px; padding: 14px; background: #ffffff;">
-                            <h4 style="margin: 0 0 6px 0; font-size: 1em; color: #1e3a8a; font-weight: bold;">
-                                {{ notif.title }}
-                            </h4>
-                            <p style="margin: 0 0 8px 0; font-size: 0.88em; color: #475569; white-space: pre-wrap;">
-                                {{ notif.message }}
-                            </p>
-                            <div style="text-align: right; font-size: 0.75em; color: #94a3b8;">
-                                {{ notif.created_at.strftime('%d/%m/%Y %H:%M') if notif.created_at else '' }}
-                            </div>
-                        </div>
-                    {% endfor %}
-
-                    {% if not global_avisos and not global_user_notifs %}
+                    {% if not global_avisos %}
                         <div style="text-align: center; padding: 40px 20px; color: #94a3b8; font-style: italic;">
-                            Nenhum aviso ou notificação ativa no momento.
+                            Nenhum aviso ou comunicado publicado no momento.
                         </div>
                     {% endif %}
                 </div>
@@ -833,6 +818,9 @@
                 else btn.classList.remove('btn-aba-ativa');
             }
         });
+        if (aba === 'ramais') {
+            filtrarTabelaRamais();
+        }
     }
 
     // ================= FUNÇÕES DO COFRE =================
@@ -1097,5 +1085,9 @@
         input.type = input.type === 'password' ? 'text' : 'password';
         btn.textContent = input.type === 'password' ? '👁️' : '👁️‍🗨️';
     }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        filtrarTabelaRamais();
+    });
 </script>
 {% endblock %}

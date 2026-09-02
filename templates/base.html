@@ -190,38 +190,20 @@
             if (!container) return;
             
             if (!items || items.length === 0) {
-                container.innerHTML = '<p style="color: #718096; font-size: 0.85em; margin: 15px 0; text-align: center; font-style: italic;">Nenhuma notificação no momento.</p>';
+                container.innerHTML = '<p style="color: #94a3b8; font-size: 0.85em; margin: 20px 0; text-align: center; font-style: italic;">Nenhuma notificação no momento.</p>';
                 return;
             }
             
             let html = '';
             items.forEach(it => {
-                if (it.type === 'user_notif') {
-                    const borda = it.notification_type === 'shared_password_updated' ? '#3182ce' : '#38a169';
-                    const icon = it.notification_type === 'shared_password_updated' ? '🔄' : '🔑';
-                    html += `
-                    <div style="background: white; border-left: 4px solid ${borda}; padding: 10px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                        <h5 style="margin: 0 0 4px 0; color: #2d3748; font-size: 0.9em; font-family: inherit; display: flex; justify-content: space-between;">
-                            <span>${icon} ${it.title}</span>
-                            ${it.is_new ? '<span class="global-nova-flag" style="color: #e53e3e; font-size: 0.75em; font-weight: bold;">(NOVO)</span>' : ''}
-                        </h5>
-                        <p style="margin: 0; font-size: 0.82em; color: #4a5568; white-space: pre-wrap; font-family: inherit;">${it.message}</p>
-                        <div style="font-size: 0.7em; color: #a0aec0; margin-top: 4px; text-align: right;">${it.time}</div>
-                    </div>`;
-                } else {
-                    const borda = it.is_urgent ? '#e53e3e' : '#ecc94b';
-                    const badgeUrgente = it.is_urgent ? '<span style="background: #e53e3e; color: white; font-size: 0.7em; padding: 1px 5px; border-radius: 3px;">URGENTE</span> ' : '';
-                    const badgeUnidade = it.unit ? `<span style="font-size: 0.72em; padding: 1px 6px; border-radius: 3px; font-weight: bold; margin-left: 4px; background: #bee3f8; color: #2c5282;">${it.unit}</span>` : '';
-                    html += `
-                    <div style="background: white; border-left: 4px solid ${borda}; padding: 10px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                        <h5 style="margin: 0 0 4px 0; color: #744210; font-size: 0.9em; font-family: inherit;">
-                            ${badgeUrgente}${it.title}${badgeUnidade}
-                            ${it.is_new ? '<span class="global-nova-flag" style="color: #e53e3e; font-size: 0.75em; margin-left: 5px; font-weight: bold;">(NOVO)</span>' : ''}
-                        </h5>
-                        <p style="margin: 0; font-size: 0.82em; color: #555; white-space: pre-wrap; font-family: inherit;">${it.message}</p>
-                        <div style="font-size: 0.7em; color: #a0aec0; margin-top: 4px; text-align: right;">${it.time}</div>
-                    </div>`;
-                }
+                const borda = (it.message && it.message.includes('urgente')) ? '#ef4444' : '#10b981';
+                html += `
+                <div style="background: white; border-left: 4px solid ${borda}; padding: 10px 12px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+                    <p style="margin: 0; font-size: 0.88em; color: #1e293b; line-height: 1.4; font-family: inherit; font-weight: 500;">
+                        ${it.message}
+                    </p>
+                    <div style="font-size: 0.72em; color: #94a3b8; margin-top: 6px; text-align: right;">${it.time}</div>
+                </div>`;
             });
             container.innerHTML = html;
         }

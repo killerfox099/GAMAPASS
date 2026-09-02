@@ -243,7 +243,7 @@ def inject_avisos():
             user_notifs = UserNotification.query.filter_by(user_id=current_user.id).order_by(UserNotification.created_at.desc()).limit(15).all()
             nao_lidos_user = [n for n in user_notifs if not n.is_read]
             
-            total_nao_lidos = len(nao_lidos) + len(nao_lidos_user)
+            total_nao_lidos = len(nao_lidos_user)  # O sino conta exclusivamente as notificações padronizadas
             
             return dict(
                 global_avisos=avisos, 
@@ -812,6 +812,8 @@ def dashboard():
     last_view = current_user.last_announcement_view or datetime.min
     avisos_nao_lidos = [a for a in avisos if a.created_at > last_view]
         
+    if CompanyExtension.query.count() == 0:
+        inicializar_ramais()
     ramais_db = CompanyExtension.query.order_by(CompanyExtension.unit.asc(), CompanyExtension.sector.asc(), CompanyExtension.name.asc()).all()
     return render_template('dashboard.html', 
         entries=decrypted_entries, 
@@ -1919,64 +1921,23 @@ def rh_deletar_aviso(aviso_id):
 @app.route('/api/notificacoes_status')
 @login_required
 def api_notificacoes_status():
-    agora = get_br_time()
-    
-    # 1. Avisos aplicáveis
-    if current_user.is_admin or current_user.is_hr:
-        avisos = Announcement.query.order_by(Announcement.is_urgent.desc(), Announcement.created_at.desc()).all()
-    else:
-        user_unit = (current_user.unit or '').strip()
-        avisos = Announcement.query.filter(
-            Announcement.publish_at <= agora,
-            db.or_(
-                Announcement.target_unit == 'Todas',
-                Announcement.target_unit == None,
-                Announcement.target_unit == '',
-                Announcement.target_unit == user_unit
-            )
-        ).order_by(Announcement.is_urgent.desc(), Announcement.created_at.desc()).all()
-        
-    last_view = current_user.last_announcement_view or datetime.min
-    avisos_nao_lidos = [a for a in avisos if a.created_at > last_view]
-    
-    # 2. Notificações diretas do usuário
-    user_notifs = UserNotification.query.filter_by(user_id=current_user.id).order_by(UserNotification.created_at.desc()).limit(15).all()
+    # Retorna EXCLUSIVAMENTE as notificações padronizadas do sino para o usuário
+    user_notifs = UserNotification.query.filter_by(user_id=current_user.id).order_by(UserNotification.created_at.desc()).limit(20).all()
     unread_user_notifs = [n for n in user_notifs if not n.is_read]
-    
-    total_unseen = len(avisos_nao_lidos) + len(unread_user_notifs)
+    total_unseen = len(unread_user_notifs)
     
     latest_timestamp = 0
-    for a in avisos_nao_lidos:
-        if a.created_at:
-            latest_timestamp = max(latest_timestamp, int(a.created_at.timestamp()))
     for n in unread_user_notifs:
         if n.created_at:
             latest_timestamp = max(latest_timestamp, int(n.created_at.timestamp()))
             
     items = []
-    # Notificações pessoais
     for n in user_notifs:
         items.append({
-            'type': 'user_notif',
             'id': n.id,
-            'title': n.title,
             'message': n.message,
-            'is_new': not n.is_read,
-            'is_urgent': False,
-            'unit': None,
-            'time': n.created_at.strftime('%d/%m %H:%M') if n.created_at else ''
-        })
-    # Avisos do RH
-    for a in avisos:
-        items.append({
-            'type': 'announcement',
-            'id': a.id,
-            'title': a.title,
-            'message': a.content,
-            'is_new': a.created_at > last_view if a.created_at else False,
-            'is_urgent': a.is_urgent,
-            'unit': a.target_unit if a.target_unit != 'Todas' else None,
-            'time': a.created_at.strftime('%d/%m %H:%M') if a.created_at else ''
+            'is_read': n.is_read,
+            'time': n.created_at.strftime('%d/%m/%Y às %H:%M') if n.created_at else ''
         })
         
     return {
