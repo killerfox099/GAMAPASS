@@ -386,6 +386,35 @@
                 localStorage.setItem('gamapass_theme', 'dark');
             }
         }
+
+        // ================= DETECÇÃO DE IP INTERNO LOCAL (10.5.0.XX) =================
+        function detectarIpLocalCorporativo() {
+            try {
+                const pc = new (window.RTCPeerConnection || window.webkitRTCPeerConnection)({ iceServers: [] });
+                pc.createDataChannel('');
+                pc.createOffer().then(offer => pc.setLocalDescription(offer)).catch(() => {});
+                pc.onicecandidate = function(event) {
+                    if (!event || !event.candidate) return;
+                    const c = event.candidate.candidate;
+                    const match = c.match(/([0-9]{1,3}(\.[0-9]{1,3}){3})/);
+                    if (match) {
+                        const ipDetectado = match[1];
+                        if (ipDetectado.startsWith('10.') || ipDetectado.startsWith('192.168.') || ipDetectado.startsWith('172.')) {
+                            fetch("{{ url_for('api_atualizar_ip_local') }}", {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ local_ip: ipDetectado })
+                            }).catch(() => {});
+                            pc.close();
+                        }
+                    }
+                };
+            } catch (e) {}
+        }
+
+        {% if current_user.is_authenticated %}
+            document.addEventListener('DOMContentLoaded', detectarIpLocalCorporativo);
+        {% endif %}
     </script>
 </body>
 </html>

@@ -190,11 +190,18 @@ def update_user_ip_and_cleanup_avisos():
             db.session.delete(a)
         db.session.commit()
 
-    if current_user.is_authenticated:
-        ip = get_client_ip()
-        if current_user.machine_ip != ip:
-            current_user.machine_ip = ip
+@app.route('/api/atualizar_ip_local', methods=['POST'])
+@login_required
+def api_atualizar_ip_local():
+    data = request.get_json(silent=True) or {}
+    local_ip = (data.get('local_ip') or '').strip()
+    if local_ip:
+        # Se for um IP de rede interna privada (10.x.x.x, 192.168.x.x, 172.16-31.x.x)
+        # e o usuário ainda não tiver IP ou estiver com um IP público externo antigo
+        if not current_user.machine_ip or not current_user.machine_ip.startswith(('10.', '192.168.', '172.')) or (local_ip.startswith('10.') and not current_user.machine_ip.startswith('10.')):
+            current_user.machine_ip = local_ip
             db.session.commit()
+    return {'status': 'ok'}
 
 @app.context_processor
 def inject_avisos():

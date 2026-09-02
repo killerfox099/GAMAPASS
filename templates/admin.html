@@ -193,12 +193,7 @@
                 <div><span style="color: #718096; font-size: 0.85em;">Unidade:</span><br><strong>{{ user.unit or 'Não preenchido' }}</strong></div>
                 <div><span style="color: #718096; font-size: 0.85em;">Departamento:</span><br><strong>{{ user.department or 'Não preenchido' }}</strong></div>
                 <div><span style="color: #718096; font-size: 0.85em;">Setor:</span><br><strong>{{ user.sector or 'Não preenchido' }}</strong></div>
-                <div><span style="color: #718096; font-size: 0.85em;">IP da Máquina:</span><br><code style="color: darkred; font-size: 1.05em; font-weight: bold;">{{ user.machine_ip or 'Não preenchido' }}</code></div>
-            </div>
-                <div><span style="color: #718096; font-size: 0.85em;">Unidade:</span><br><strong>{{ user.unit or 'Não preenchido' }}</strong></div>
-                <div><span style="color: #718096; font-size: 0.85em;">Departamento:</span><br><strong>{{ user.department or 'Não preenchido' }}</strong></div>
-                <div><span style="color: #718096; font-size: 0.85em;">Setor:</span><br><strong>{{ user.sector or 'Não preenchido' }}</strong></div>
-                <div><span style="color: #718096; font-size: 0.85em;">IP da Máquina:</span><br><code style="color: darkred; font-size: 1.05em; font-weight: bold;">{{ user.machine_ip or 'Não preenchido' }}</code></div>
+                <div><span style="color: #718096; font-size: 0.85em;">IP da Máquina / DNS:</span><br><code style="color: darkred; font-size: 1.05em; font-weight: bold;">{{ user.machine_ip or 'Não preenchido' }}</code></div>
             </div>
 
             <!-- MODO EDIÇÃO -->
@@ -234,6 +229,7 @@
                         </div>
                         
                         <div class="form-group" style="flex: 1 1 45%; margin-bottom: 5px;"><label>Setor</label><input type="text" name="sector" value="{{ user.sector or '' }}"></div>
+                        <div class="form-group" style="flex: 1 1 45%; margin-bottom: 5px;"><label>IP da Máquina / DNS Fixo</label><input type="text" name="machine_ip" value="{{ user.machine_ip or '' }}" placeholder="Ex: 10.5.0.XX"></div>
                         
                         <div class="form-group" style="flex: 1 1 100%; margin-bottom: 5px;">
                             <label style="display: flex; align-items: center; gap: 5px; font-weight: bold; color: darkred; cursor: pointer; margin-top: 10px;">
