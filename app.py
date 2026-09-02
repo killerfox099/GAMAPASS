@@ -1609,94 +1609,102 @@ def ramais_deletar(ramal_id):
 @app.route('/ramais/exportar_pdf')
 @login_required
 def exportar_ramais_pdf():
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    import io
-    
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=25, leftMargin=25, topMargin=25, bottomMargin=25)
-    elements = []
-    styles = getSampleStyleSheet()
-    
-    title_style = ParagraphStyle(
-        'DocTitle',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=15,
-        leading=18,
-        alignment=1,
-        textColor=colors.HexColor('#0b1329')
-    )
-    subtitle_style = ParagraphStyle(
-        'DocSub',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=9,
-        leading=12,
-        alignment=1,
-        textColor=colors.HexColor('#475569')
-    )
-    pabx_style = ParagraphStyle(
-        'PabxStyle',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=7.5,
-        leading=10,
-        alignment=1,
-        textColor=colors.HexColor('#166534')
-    )
-    
-    elements.append(Paragraph("<b>GAMA CAMINHÕES & ÔNIBUS — LISTA DE RAMAIS OFICIAL</b>", title_style))
-    elements.append(Paragraph(f"Atualização Oficial do RH: {get_br_time().strftime('%d/%m/%Y às %H:%M')}", subtitle_style))
-    elements.append(Spacer(1, 6))
-    elements.append(Paragraph("<b>PABX:</b> Transferir: FLASH + RAMAL | Retornar se ocupado: FLASH + # + 0 | Atender específico: # + 5 RAMAL + * | Atender qualquer: FLASH + 22<br/><b>Campina Grande:</b> (83) 3315-4500 | <b>João Pessoa:</b> (83) 3215-5666", pabx_style))
-    elements.append(Spacer(1, 8))
-    
-    ramais = CompanyExtension.query.order_by(CompanyExtension.unit.asc(), CompanyExtension.sector.asc(), CompanyExtension.name.asc()).all()
-    
-    data = [["Unidade", "Setor / Cargo", "Nome", "Ramal", "E-mail", "Celular"]]
-    
-    cell_style = ParagraphStyle('Cell', fontName='Helvetica', fontSize=7.5, leading=9.5)
-    cell_bold = ParagraphStyle('CellB', fontName='Helvetica-Bold', fontSize=7.5, leading=9.5)
-    cell_ext = ParagraphStyle('CellExt', fontName='Helvetica-Bold', fontSize=8.5, leading=10.5, alignment=1, textColor=colors.HexColor('#1d4ed8'))
-    
-    for r in ramais:
-        u_short = "Campina Grande" if "CAMPINA" in r.unit.upper() else "João Pessoa"
-        setor_txt = f"<b>{r.sector}</b><br/>{r.role_name or ''}"
-        data.append([
-            Paragraph(u_short, cell_style),
-            Paragraph(setor_txt, cell_style),
-            Paragraph(f"<b>{r.name}</b>", cell_bold),
-            Paragraph(r.extension or "-", cell_ext),
-            Paragraph(r.email or "-", cell_style),
-            Paragraph(r.phone or "-", cell_style)
-        ])
-    
-    col_widths = [75, 110, 110, 45, 125, 80]
-    t = Table(data, colWidths=col_widths, repeatRows=1)
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0b1329')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
-        ('TOPPADDING', (0, 0), (-1, 0), 4),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')])
-    ]))
-    
-    elements.append(t)
-    doc.build(elements)
-    buffer.seek(0)
-    
-    return Response(
-        buffer.getvalue(),
-        mimetype='application/pdf',
-        headers={"Content-Disposition": "attachment; filename=Lista_de_Ramais_Gama_Caminhoes.pdf"}
-    )
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        import io
+        
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=25, leftMargin=25, topMargin=25, bottomMargin=25)
+        elements = []
+        styles = getSampleStyleSheet()
+        
+        title_style = ParagraphStyle(
+            'DocTitle',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=15,
+            leading=18,
+            alignment=1,
+            textColor=colors.HexColor('#0b1329')
+        )
+        subtitle_style = ParagraphStyle(
+            'DocSub',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=9,
+            leading=12,
+            alignment=1,
+            textColor=colors.HexColor('#475569')
+        )
+        pabx_style = ParagraphStyle(
+            'PabxStyle',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=7.5,
+            leading=10,
+            alignment=1,
+            textColor=colors.HexColor('#166534')
+        )
+        
+        elements.append(Paragraph("<b>GAMA CAMINHÕES & ÔNIBUS — LISTA DE RAMAIS OFICIAL</b>", title_style))
+        elements.append(Paragraph(f"Atualização Oficial do RH: {get_br_time().strftime('%d/%m/%Y às %H:%M')}", subtitle_style))
+        elements.append(Spacer(1, 6))
+        elements.append(Paragraph("<b>PABX:</b> Transferir: FLASH + RAMAL | Retornar se ocupado: FLASH + # + 0 | Atender específico: # + 5 RAMAL + * | Atender qualquer: FLASH + 22<br/><b>Campina Grande:</b> (83) 3315-4500 | <b>João Pessoa:</b> (83) 3215-5666", pabx_style))
+        elements.append(Spacer(1, 8))
+        
+        if CompanyExtension.query.count() == 0:
+            inicializar_ramais()
+            
+        ramais = CompanyExtension.query.order_by(CompanyExtension.unit.asc(), CompanyExtension.sector.asc(), CompanyExtension.name.asc()).all()
+        
+        data = [["Unidade", "Setor / Cargo", "Nome", "Ramal", "E-mail", "Celular"]]
+        
+        cell_style = ParagraphStyle('Cell', fontName='Helvetica', fontSize=7.5, leading=9.5)
+        cell_bold = ParagraphStyle('CellB', fontName='Helvetica-Bold', fontSize=7.5, leading=9.5)
+        cell_ext = ParagraphStyle('CellExt', fontName='Helvetica-Bold', fontSize=8.5, leading=10.5, alignment=1, textColor=colors.HexColor('#1d4ed8'))
+        
+        for r in ramais:
+            u_short = "Campina Grande" if "CAMPINA" in r.unit.upper() else "João Pessoa"
+            setor_txt = f"<b>{r.sector}</b><br/>{r.role_name or ''}"
+            data.append([
+                Paragraph(u_short, cell_style),
+                Paragraph(setor_txt, cell_style),
+                Paragraph(f"<b>{r.name}</b>", cell_bold),
+                Paragraph(r.extension or "-", cell_ext),
+                Paragraph(r.email or "-", cell_style),
+                Paragraph(r.phone or "-", cell_style)
+            ])
+        
+        col_widths = [75, 110, 110, 45, 125, 80]
+        t = Table(data, colWidths=col_widths, repeatRows=1)
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0b1329')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+            ('TOPPADDING', (0, 0), (-1, 0), 4),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')])
+        ]))
+        
+        elements.append(t)
+        doc.build(elements)
+        buffer.seek(0)
+        
+        return Response(
+            buffer.getvalue(),
+            mimetype='application/pdf',
+            headers={"Content-Disposition": "attachment; filename=Lista_de_Ramais_Gama_Caminhoes.pdf"}
+        )
+    except Exception as e:
+        print(f"[ERRO EXPORTAR PDF RAMAIS]: {e}", flush=True)
+        flash(f"Não foi possível gerar o PDF dos ramais: {e}", "error")
+        return redirect(url_for('dashboard'))
 
 @app.route('/admin/auditoria')
 @login_required

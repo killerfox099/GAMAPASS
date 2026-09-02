@@ -71,58 +71,119 @@
     </p>
 
     {% if logs %}
-    <div style="overflow-x: auto; background: white; border: 1px solid #e2e8f0; border-radius: 6px;">
+    <div style="overflow-x: auto; background: white; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);">
         <table class="audit-table">
             <thead>
                 <tr>
-                    <th>Data/Hora</th>
-                    <th>Usuário</th>
-                    <th>Ação</th>
+                    <th style="width: 160px;">Data/Hora</th>
+                    <th style="width: 160px;">Usuário</th>
+                    <th style="width: 170px; text-align: center;">Ação</th>
                     <th>Detalhes</th>
-                    <th>IP</th>
+                    <th style="width: 130px;">IP</th>
                 </tr>
             </thead>
             <tbody>
                 {% for log in logs %}
                 <tr>
-                    <td style="white-space: nowrap; font-size: 0.85em; color: #555;">
+                    <td style="white-space: nowrap; font-size: 0.88em; color: #334155; font-weight: 500;">
                         {{ log.created_at.strftime('%d/%m/%Y %H:%M:%S') if log.created_at else '-' }}
                     </td>
-                    <td><strong>{{ log.username_at_time or '—' }}</strong></td>
                     <td>
+                        <strong style="color: #0b1329; font-size: 0.95em; font-weight: 700;">{{ log.username_at_time or '—' }}</strong>
+                    </td>
+                    <td style="text-align: center;">
                         <span class="audit-badge audit-badge-{{ log.action | lower }}">{{ log.action }}</span>
                     </td>
-                    <td style="font-size: 0.9em; color: #444;">{{ log.details or '—' }}</td>
-                    <td style="font-size: 0.85em; color: #777; font-family: monospace;">{{ log.ip_address or '—' }}</td>
+                    <td style="font-size: 0.92em; color: #1e293b; line-height: 1.45;">{{ log.details or '—' }}</td>
+                    <td style="font-size: 0.88em; color: #0f172a; font-family: monospace; font-weight: 600;">{{ log.ip_address or '—' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
     {% else %}
-        <div style="text-align: center; padding: 40px; color: #999;">
-            <p style="font-size: 1.2em;">📭 Nenhum registro encontrado para estes filtros.</p>
+        <div style="text-align: center; padding: 40px; color: #64748b;">
+            <p style="font-size: 1.2em; font-weight: bold;">📭 Nenhum registro encontrado para estes filtros.</p>
             <p style="font-size: 0.9em;">Tente ajustar as datas ou remover filtros específicos.</p>
         </div>
     {% endif %}
 </div>
 
 <style>
-.audit-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
-.audit-table th { background-color: var(--navy-blue); color: white; padding: 10px 14px; text-align: left; font-weight: 600; font-size: 0.85em; }
-.audit-table td { padding: 10px 14px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
-.audit-table tr:hover td { background-color: #f7fafc; }
-.audit-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.78em; font-weight: bold; text-transform: uppercase; white-space: nowrap; }
-.audit-badge-login { background: #c6f6d5; color: #22543d; }
-.audit-badge-login_falha, .audit-badge-login_bloqueado, .audit-badge-conta_bloqueada { background: #fed7d7; color: #742a2a; }
-.audit-badge-logout { background: #e2e8f0; color: #4a5568; }
-.audit-badge-senha_criada, .audit-badge-senha_compartilhada { background: #bee3f8; color: #2a4365; }
-.audit-badge-senha_editada, .audit-badge-compartilhamento_revogado { background: #fefcbf; color: #744210; }
-.audit-badge-senha_removida { background: #fed7d7; color: #742a2a; }
-.audit-badge-usuario_criado, .audit-badge-usuario_desbloqueado { background: #c6f6d5; color: #22543d; }
-.audit-badge-usuario_editado { background: #fefcbf; color: #744210; }
-.audit-badge-usuario_removido { background: #fed7d7; color: #742a2a; }
-.audit-badge-alerta_login_dispositivo { background: #feebc8; color: #7b341e; }
-.audit-badge-aviso_criado { background: #e9d8fd; color: #44337a; }
+.audit-table { width: 100%; border-collapse: collapse; font-size: 0.92em; }
+.audit-table th { background-color: #0b1329; color: #ffffff; padding: 12px 14px; text-align: left; font-weight: 700; font-size: 0.88em; letter-spacing: 0.5px; }
+.audit-table td { padding: 12px 14px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+.audit-table tr:hover td { background-color: #f8fafc; }
+
+/* Badges com alto contraste e legibilidade perfeita */
+.audit-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: 700;
+    text-transform: uppercase;
+    white-space: nowrap;
+    background: #e2e8f0;
+    color: #1e293b;
+    border: 1px solid #cbd5e1;
+}
+
+/* Sucesso / Criações / Logins */
+.audit-badge-login,
+.audit-badge-usuario_criado,
+.audit-badge-usuario_desbloqueado,
+.audit-badge-ramal_adicionado {
+    background-color: #dcfce7 !important;
+    color: #15803d !important;
+    border: 1px solid #86efac !important;
+}
+
+/* Alertas / Edições / Modificações */
+.audit-badge-aviso_editado,
+.audit-badge-senha_editada,
+.audit-badge-usuario_editado,
+.audit-badge-ramal_editado,
+.audit-badge-compartilhamento_revogado {
+    background-color: #fef3c7 !important;
+    color: #b45309 !important;
+    border: 1px solid #fcd34d !important;
+}
+
+/* Criações / Informativos */
+.audit-badge-aviso_criado,
+.audit-badge-senha_criada,
+.audit-badge-senha_compartilhada {
+    background-color: #dbeafe !important;
+    color: #1d4ed8 !important;
+    border: 1px solid #93c5fd !important;
+}
+
+/* Avisos / Mudança de Dispositivo */
+.audit-badge-alerta_login_dispositivo {
+    background-color: #ffedd5 !important;
+    color: #c2410c !important;
+    border: 1px solid #fdba74 !important;
+}
+
+/* Remoções / Falhas / Bloqueios */
+.audit-badge-login_falha,
+.audit-badge-login_bloqueado,
+.audit-badge-conta_bloqueada,
+.audit-badge-senha_removida,
+.audit-badge-usuario_removido,
+.audit-badge-aviso_removido,
+.audit-badge-ramal_removido {
+    background-color: #fee2e2 !important;
+    color: #b91c1c !important;
+    border: 1px solid #fca5a5 !important;
+}
+
+/* Logout / Neutro */
+.audit-badge-logout {
+    background-color: #f1f5f9 !important;
+    color: #475569 !important;
+    border: 1px solid #cbd5e1 !important;
+}
 </style>
 {% endblock %}

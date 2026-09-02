@@ -5,3 +5,4 @@ Werkzeug
 cryptography
 gunicorn
 psycopg2-binary
+reportlab
