@@ -34,7 +34,7 @@
             🔐 Cofre de Senhas
         </button>
         <button type="button" id="tab-btn-mural" onclick="trocarAba('mural')" class="btn-aba-gamapass">
-            📢 Mural & Comunicados
+            📢 Mural &amp; Comunicados
             {% if global_total_nao_lidos > 0 %}
                 <span style="background-color: #ef4444; color: white; padding: 2px 7px; border-radius: 10px; font-size: 0.78em; margin-left: 5px;">{{ global_total_nao_lidos }}</span>
             {% endif %}
@@ -87,36 +87,26 @@
             color: #ffffff;
             border: none;
             border-radius: 4px;
-            padding: 5px 12px;
-            font-size: 0.85em;
+            padding: 7px 14px;
+            font-size: 0.88em;
             font-weight: 600;
             cursor: pointer;
             text-decoration: none;
             transition: background 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         .btn-compartilhar-v2:hover {
             background-color: #1d4ed8;
-        }
-        .btn-acao-texto {
-            background: none;
-            border: none;
-            color: #2563eb;
-            cursor: pointer;
-            font-size: 0.85em;
-            font-weight: 600;
-            padding: 0 4px;
-            text-decoration: none;
-        }
-        .btn-acao-texto:hover {
-            text-decoration: underline;
         }
         .btn-link-cinza {
             background: none;
             border: none;
             color: #64748b;
             cursor: pointer;
-            font-size: 0.82em;
-            padding: 0 6px;
+            font-size: 0.85em;
+            padding: 0 4px;
             text-decoration: none;
             font-weight: 500;
         }
@@ -132,7 +122,6 @@
             color: #334155;
             margin-top: 4px;
         }
-        /* Design 2 Colunas do Mural */
         .col-mural-esquerda {
             flex: 1 1 480px;
             background: #ffffff;
@@ -152,19 +141,19 @@
     </style>
 
     <!-- ============================================================== -->
-    <!-- ABA 1: COFRE DE SENHAS (LAYOUT IDÊNTICO À PRIMEIRA IMAGEM)       -->
+    <!-- ABA 1: COFRE DE SENHAS                                         -->
     <!-- ============================================================== -->
     <div id="aba-conteudo-cofre" style="display: block;">
 
         <!-- BOTÕES SUPERIORES DE AÇÃO -->
         <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 22px;">
-            <button type="button" onclick="toggleFormAdicionarSenha()" style="background-color: #0b1329; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.92em; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+            <button type="button" onclick="toggleFormAdicionarSenha()" style="background-color: #0b1329; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.92em; cursor: pointer;">
                 [+] Nova Senha
             </button>
-            <button type="button" onclick="document.getElementById('arquivo_csv').click();" style="background-color: #0284c7; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.92em; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+            <button type="button" onclick="document.getElementById('arquivo_csv').click();" style="background-color: #0284c7; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.92em; cursor: pointer;">
                 [v] Importar CSV
             </button>
-            <a href="{{ url_for('exportar_csv') }}" style="background-color: #475569; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.92em; text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <a href="{{ url_for('exportar_csv') }}" style="background-color: #475569; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.92em; text-decoration: none;">
                 [&gt;] Exportar
             </a>
             <form id="formImportacao" action="{{ url_for('importar_csv') }}" method="POST" enctype="multipart/form-data" style="display:none;">
@@ -231,30 +220,24 @@
                     <!-- MODO VISUALIZAÇÃO -->
                     <div id="view-pass-{{ entry.id }}" style="display: flex; flex-direction: column; gap: 8px;">
                         
-                        <!-- Header do Card -->
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <h4 style="margin: 0; font-size: 1.15em; color: #0b1329; font-weight: bold;">
-                                <span class="busca-servico">{{ entry.service_name }}</span>
-                            </h4>
-                            <button type="button" onclick="toggleShareBox('{{ entry.id }}')" class="btn-compartilhar-v2" title="Compartilhar credencial com outro usuário">
-                                Compartilhar
-                            </button>
-                        </div>
+                        <!-- 1. Título do Serviço -->
+                        <h4 style="margin: 0; font-size: 1.18em; color: #0b1329; font-weight: bold;">
+                            <span class="busca-servico">{{ entry.service_name }}</span>
+                        </h4>
 
-                        <!-- Campos -->
+                        <!-- 2. Usuário -->
                         <div style="font-size: 0.92em; color: #475569;">
                             <span>Usuário:</span> <strong class="busca-login" style="color: #1e293b;">{{ entry.service_username }}</strong>
                         </div>
 
-                        <div style="font-size: 0.92em; color: #475569; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <!-- 3. Senha Mascarada -->
+                        <div style="font-size: 0.92em; color: #475569; display: flex; align-items: center; gap: 8px;">
                             <span>Senha:</span>
                             <span id="pass-mask-{{ entry.id }}" style="font-family: monospace; font-size: 1.1em; letter-spacing: 2px; color: #1e293b;">••••••••••</span>
                             <span id="pass-real-{{ entry.id }}" style="display: none; font-family: monospace; font-size: 1.05em; font-weight: bold; color: #0f172a; background: #e2e8f0; padding: 2px 6px; border-radius: 4px;">{{ entry.password }}</span>
-                            
-                            <button type="button" class="btn-acao-texto" onclick="alternarVerSenha('{{ entry.id }}', this)">[Ver]</button>
-                            <button type="button" class="btn-acao-texto" onclick="copiarSenhaDireta('{{ entry.password }}', this)">[Copiar]</button>
                         </div>
 
+                        <!-- 4. Link -->
                         {% if entry.service_url %}
                             <div style="font-size: 0.88em;">
                                 <span style="color: #64748b;">Link:</span>
@@ -264,9 +247,9 @@
                             </div>
                         {% endif %}
 
-                        <!-- Nota Segura (Oculta por padrão) -->
+                        <!-- 5. Nota Segura (Oculta por padrão) -->
                         {% if entry.notes %}
-                            <div style="margin-top: 4px;">
+                            <div style="margin-top: 2px;">
                                 <button type="button" class="btn-link-cinza" onclick="alternarNotaSegura('{{ entry.id }}', this)" style="padding: 0; color: #475569; font-weight: 600;">
                                     [+] Ver Nota Segura
                                 </button>
@@ -278,7 +261,7 @@
 
                         <!-- Membros compartilhados ativos -->
                         {% if entry.shares %}
-                            <div style="font-size: 0.82em; color: #0369a1; background: #f0f9ff; padding: 6px 10px; border-radius: 4px; border-left: 3px solid #0284c7; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <div style="font-size: 0.82em; color: #0369a1; background: #f0f9ff; padding: 6px 10px; border-radius: 4px; border-left: 3px solid #0284c7; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px;">
                                 <strong>Compartilhado com:</strong>
                                 {% for share in entry.shares %}
                                     <span style="background: white; border: 1px solid #bae6fd; padding: 1px 6px; border-radius: 3px; display: inline-flex; align-items: center; gap: 4px;">
@@ -291,8 +274,18 @@
                             </div>
                         {% endif %}
 
-                        <!-- Rodapé de Ações do Card -->
-                        <div style="display: flex; gap: 8px; margin-top: 6px; padding-top: 8px; border-top: 1px solid #f1f5f9;">
+                        <!-- 6. BOTÕES VER E COPIAR (ACIMA DA LINHA DE AÇÕES COM A MESMA ESTÉTICA AZUL) -->
+                        <div style="display: flex; gap: 8px; margin-top: 6px;">
+                            <button type="button" class="btn-compartilhar-v2" onclick="alternarVerSenha('{{ entry.id }}', this)" style="flex: 1; padding: 6px 12px; font-size: 0.85em; text-align: center;">
+                                Ver
+                            </button>
+                            <button type="button" class="btn-compartilhar-v2" onclick="copiarSenhaDireta('{{ entry.password }}', this)" style="flex: 1; padding: 6px 12px; font-size: 0.85em; text-align: center;">
+                                Copiar
+                            </button>
+                        </div>
+
+                        <!-- 7. LINHA DE RODAPÉ (EDITAR | APAGAR | HISTÓRICO) -->
+                        <div style="display: flex; justify-content: center; gap: 12px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f1f5f9; font-size: 0.86em;">
                             <button type="button" class="btn-link-cinza" onclick="toggleEditPass('{{ entry.id }}')">Editar</button>
                             <span style="color: #cbd5e1;">|</span>
                             <form method="POST" action="{{ url_for('delete_password', pass_id=entry.id) }}" onsubmit="return confirm('Apagar esta credencial permanentemente?');" style="margin: 0; display: inline;">
@@ -300,6 +293,13 @@
                             </form>
                             <span style="color: #cbd5e1;">|</span>
                             <button type="button" class="btn-link-cinza" onclick="verHistorico({{ entry.id }}, '{{ entry.service_name }}')">Histórico</button>
+                        </div>
+
+                        <!-- 8. BOTÃO COMPARTILHAR (ABAIXO DA LINHA DE AÇÕES) -->
+                        <div style="margin-top: 6px;">
+                            <button type="button" onclick="toggleShareBox('{{ entry.id }}')" class="btn-compartilhar-v2" style="width: 100%; padding: 8px; text-align: center; font-size: 0.88em;">
+                                Compartilhar
+                            </button>
                         </div>
                     </div>
 
@@ -372,13 +372,10 @@
                         <span>Usuário:</span> <strong>{{ s.service_username }}</strong>
                     </div>
 
-                    <div style="font-size: 0.92em; color: #334155; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <div style="font-size: 0.92em; color: #334155; display: flex; align-items: center; gap: 8px;">
                         <span>Senha:</span>
                         <span id="share-pass-mask-{{ s.id }}" style="font-family: monospace; font-size: 1.1em; letter-spacing: 2px; color: #0f766e;">••••••••••</span>
                         <span id="share-pass-real-{{ s.id }}" style="display: none; font-family: monospace; font-size: 1.05em; font-weight: bold; color: #115e59; background: #ccfbf1; padding: 2px 6px; border-radius: 4px;">{{ s.password }}</span>
-                        
-                        <button type="button" class="btn-acao-texto" onclick="alternarVerSenhaCompartilhada('{{ s.id }}', this)" style="color: #0d9488;">[Ver]</button>
-                        <button type="button" class="btn-acao-texto" onclick="copiarSenhaDireta('{{ s.password }}', this)" style="color: #0d9488;">[Copiar]</button>
                     </div>
 
                     {% if s.service_url %}
@@ -400,6 +397,16 @@
                             </div>
                         </div>
                     {% endif %}
+
+                    <!-- Botões Ver e Copiar Compartilhados -->
+                    <div style="display: flex; gap: 8px; margin-top: 6px;">
+                        <button type="button" class="btn-compartilhar-v2" onclick="alternarVerSenhaCompartilhada('{{ s.id }}', this)" style="background-color: #0d9488; flex: 1; padding: 6px 12px; font-size: 0.85em; text-align: center;">
+                            Ver
+                        </button>
+                        <button type="button" class="btn-compartilhar-v2" onclick="copiarSenhaDireta('{{ s.password }}', this)" style="background-color: #0d9488; flex: 1; padding: 6px 12px; font-size: 0.85em; text-align: center;">
+                            Copiar
+                        </button>
+                    </div>
                 </div>
                 {% endfor %}
             </div>
@@ -410,7 +417,7 @@
 
 
     <!-- ============================================================== -->
-    <!-- ABA 2: MURAL & COMUNICADOS (LAYOUT IDÊNTICO À SEGUNDA IMAGEM)     -->
+    <!-- ABA 2: MURAL & COMUNICADOS (COM DESIGN DA SEGUNDA IMAGEM)       -->
     <!-- ============================================================== -->
     <div id="aba-conteudo-mural" style="display: none;">
         <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start;">
@@ -418,7 +425,7 @@
             <!-- COLUNA ESQUERDA: CENTRAL DE NOTIFICAÇÕES & MURAL -->
             <div class="col-mural-esquerda">
                 <div style="background-color: #fef3c7; border-bottom: 1px solid #fde68a; padding: 14px 18px;">
-                    <h3 style="margin: 0; font-size: 1.15em; color: #b45309; font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                    <h3 style="margin: 0; font-size: 1.15em; color: #b45309; font-weight: bold;">
                         Central de Notificações &amp; Mural
                     </h3>
                 </div>
@@ -455,7 +462,7 @@
                         </div>
                     {% endfor %}
 
-                    <!-- 2. Notificações de Senhas Compartilhadas e Atualizadas -->
+                    <!-- 2. Notificações do Sistema -->
                     {% for notif in global_user_notifs %}
                         <div style="border: 2px solid #3b82f6; border-radius: 6px; padding: 14px; background: #ffffff;">
                             <h4 style="margin: 0 0 6px 0; font-size: 1em; color: #1e3a8a; font-weight: bold;">
@@ -490,7 +497,6 @@
                     {% set ns = namespace(tem_arquivos=false) %}
                     
                     {% for aviso in global_avisos %}
-                        <!-- Arquivos Binários do Banco -->
                         {% for arq in aviso.files %}
                             {% set ns.tem_arquivos = true %}
                             <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
@@ -510,7 +516,6 @@
                             </div>
                         {% endfor %}
 
-                        <!-- Links Manuais de Documentos -->
                         {% if aviso.document_link %}
                             {% set ns.tem_arquivos = true %}
                             <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
@@ -537,9 +542,8 @@
                         </div>
                     {% endif %}
 
-                    <!-- Link Google Drive -->
                     <div style="margin-top: 10px; border-top: 1px solid #e2e8f0; padding-top: 12px; text-align: center;">
-                        <a href="https://drive.google.com/drive/folders/1tKzk1_KFrYN_9R05SNt3yuOXXnnYCWye" target="_blank" style="display: block; width: 100%; background-color: #2563eb; color: white; padding: 10px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.9em; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <a href="https://drive.google.com/drive/folders/1tKzk1_KFrYN_9R05SNt3yuOXXnnYCWye" target="_blank" style="display: block; width: 100%; background-color: #2563eb; color: white; padding: 10px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.9em;">
                             Abrir Pasta no Google Drive
                         </a>
                     </div>
@@ -551,7 +555,7 @@
 
 
     <!-- ============================================================== -->
-    <!-- ABA 3: LISTA DE RAMAIS (CAMPINA GRANDE & JOÃO PESSOA)           -->
+    <!-- ABA 3: LISTA DE RAMAIS (COM GESTÃO DO RH & EXPORTAÇÃO EM PDF)   -->
     <!-- ============================================================== -->
     <div id="aba-conteudo-ramais" style="display: none;">
         
@@ -574,17 +578,78 @@
             </div>
         </div>
 
-        <!-- FILTROS E PESQUISA DE RAMAIS -->
-        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px;">
-            <input type="text" id="buscaRamalInput" onkeyup="filtrarTabelaRamais()" placeholder="🔍 Pesquisar por Nome, Setor, Ramal, E-mail ou Celular..."
-                style="flex: 1 1 280px; padding: 10px 14px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 0.95em;">
-            
-            <div style="display: flex; gap: 6px;">
-                <button type="button" onclick="filtrarUnidadeRamal('TODAS', this)" class="btn-filtro-ramal btn-filtro-ramal-ativo">Todas</button>
-                <button type="button" onclick="filtrarUnidadeRamal('CAMPINA GRANDE', this)" class="btn-filtro-ramal">Campina Grande</button>
-                <button type="button" onclick="filtrarUnidadeRamal('JOÃO PESSOA', this)" class="btn-filtro-ramal">João Pessoa</button>
+        <!-- BARRA DE AÇÕES DO RH E EXPORTAÇÃO PDF -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; flex: 1;">
+                <input type="text" id="buscaRamalInput" onkeyup="filtrarTabelaRamais()" placeholder="🔍 Pesquisar por Nome, Setor, Ramal, E-mail ou Celular..."
+                    style="flex: 1 1 260px; padding: 10px 14px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 0.95em;">
+                
+                <div style="display: flex; gap: 6px;">
+                    <button type="button" onclick="filtrarUnidadeRamal('TODAS', this)" class="btn-filtro-ramal btn-filtro-ramal-ativo">Todas</button>
+                    <button type="button" onclick="filtrarUnidadeRamal('Campina Grande', this)" class="btn-filtro-ramal">Campina Grande</button>
+                    <button type="button" onclick="filtrarUnidadeRamal('João Pessoa', this)" class="btn-filtro-ramal">João Pessoa</button>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; align-items: center;">
+                {% if current_user.is_hr or current_user.is_admin %}
+                    <button type="button" onclick="toggleFormAdicionarRamal()" style="background-color: #15803d; color: white; padding: 10px 16px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.9em; cursor: pointer;">
+                        ➕ Adicionar Contato
+                    </button>
+                {% endif %}
+                <a href="{{ url_for('exportar_ramais_pdf') }}" style="background-color: #dc2626; color: white; padding: 10px 16px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.9em; text-decoration: none; display: flex; align-items: center; gap: 6px;">
+                    📄 Exportar PDF
+                </a>
             </div>
         </div>
+
+        <!-- FORMULÁRIO DE ADICIONAR RAMAL (RH / ADMIN) -->
+        {% if current_user.is_hr or current_user.is_admin %}
+        <div id="box-novo-ramal" style="display: none; background: #f8fafc; border: 1.5px solid #2563eb; border-radius: 8px; padding: 18px; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 12px 0; color: #1e3a8a; font-size: 1.05em;">➕ Novo Contato na Lista de Ramais</h4>
+            <form method="POST" action="{{ url_for('ramais_adicionar') }}">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+                    <div style="flex: 1 1 150px;">
+                        <label style="font-size: 0.82em; font-weight: bold; color: #475569;">Unidade *</label>
+                        <select name="unit" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                            <option value="Campina Grande">Campina Grande</option>
+                            <option value="João Pessoa">João Pessoa</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1 1 180px;">
+                        <label style="font-size: 0.82em; font-weight: bold; color: #475569;">Setor *</label>
+                        <input type="text" name="sector" placeholder="Ex: CONTABILIDADE, VEICULOS NOVOS" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                    </div>
+                    <div style="flex: 1 1 180px;">
+                        <label style="font-size: 0.82em; font-weight: bold; color: #475569;">Cargo / Função</label>
+                        <input type="text" name="role_name" placeholder="Ex: GESTORA, VENDEDOR" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                    </div>
+                    <div style="flex: 1 1 180px;">
+                        <label style="font-size: 0.82em; font-weight: bold; color: #475569;">Nome do Colaborador *</label>
+                        <input type="text" name="name" placeholder="Ex: MARCOS SILVA" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
+                    <div style="flex: 1 1 120px;">
+                        <label style="font-size: 0.82em; font-weight: bold; color: #475569;">Ramal (ou -)</label>
+                        <input type="text" name="extension" placeholder="Ex: 5651" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                    </div>
+                    <div style="flex: 1 1 200px;">
+                        <label style="font-size: 0.82em; font-weight: bold; color: #475569;">E-mail Corporativo</label>
+                        <input type="text" name="email" placeholder="Ex: contato@gamacaminhoes.com.br" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                    </div>
+                    <div style="flex: 1 1 180px;">
+                        <label style="font-size: 0.82em; font-weight: bold; color: #475569;">Celular / WhatsApp</label>
+                        <input type="text" name="phone" placeholder="Ex: (83) 99135-0151" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" style="background-color: #15803d; color: white; padding: 9px 20px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;">💾 Salvar Contato</button>
+                    <button type="button" onclick="toggleFormAdicionarRamal()" style="background-color: #94a3b8; color: white; padding: 9px 16px; border: none; border-radius: 4px; cursor: pointer;">Cancelar</button>
+                </div>
+            </form>
+        </div>
+        {% endif %}
 
         <style>
             .btn-filtro-ramal {
@@ -631,7 +696,7 @@
             }
         </style>
 
-        <!-- TABELA DE RAMAIS -->
+        <!-- TABELA DE RAMAIS COM DADOS DO BANCO DE DADOS -->
         <div style="overflow-x: auto;">
             <table class="tabela-ramais-v2" id="tabelaRamais">
                 <thead>
@@ -642,10 +707,59 @@
                         <th style="text-align: center;">Ramal</th>
                         <th>E-mail</th>
                         <th>Celular</th>
+                        {% if current_user.is_hr or current_user.is_admin %}
+                            <th style="text-align: center;">Ações (RH)</th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody id="corpoTabelaRamais">
-                    <!-- Registros preenchidos dinamicamente pelo script abaixo -->
+                    {% for r in ramais %}
+                    <tr class="linha-ramal" data-unidade="{{ r.unit }}" data-nome="{{ r.name }}" data-setor="{{ r.sector }}" data-cargo="{{ r.role_name or '' }}" data-ramal="{{ r.extension or '' }}" data-email="{{ r.email or '' }}" data-phone="{{ r.phone or '' }}">
+                        <td>
+                            <span style="background:{% if 'Campina' in r.unit %}#2563eb{% else %}#d97706{% endif %}; color:white; font-size:0.75em; padding:2px 7px; border-radius:4px; font-weight:bold;">
+                                {{ r.unit }}
+                            </span>
+                        </td>
+                        <td>
+                            <strong>{{ r.sector }}</strong><br>
+                            <small style="color:#64748b;">{{ r.role_name or '-' }}</small>
+                        </td>
+                        <td><strong style="color:#0f172a;">{{ r.name }}</strong></td>
+                        <td style="text-align:center;">
+                            {% if r.extension and r.extension != '-' %}
+                                <strong style="color:#1d4ed8; font-size:1.1em; background:#eff6ff; padding:3px 8px; border-radius:4px; border:1px solid #bfdbfe;">{{ r.extension }}</strong>
+                            {% else %}
+                                <span style="color:#94a3b8;">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if r.email and r.email != '-' %}
+                                <a href="mailto:{{ r.email }}" style="color:#2563eb; text-decoration:none; font-size:0.9em;">{{ r.email }}</a>
+                            {% else %}
+                                <span style="color:#94a3b8;">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if r.phone and r.phone != '-' %}
+                                <a href="tel:{{ r.phone|replace(' ', '')|replace('(', '')|replace(')', '')|replace('-', '') }}" style="color:#059669; text-decoration:none; font-weight:600; font-size:0.9em;">{{ r.phone }}</a>
+                            {% else %}
+                                <span style="color:#94a3b8;">-</span>
+                            {% endif %}
+                        </td>
+                        {% if current_user.is_hr or current_user.is_admin %}
+                        <td style="text-align: center; white-space: nowrap;">
+                            <button type="button" onclick="abrirModalEditarRamal({{ r.id }}, '{{ r.unit }}', '{{ r.sector }}', '{{ r.role_name or '' }}', '{{ r.name }}', '{{ r.extension or '' }}', '{{ r.email or '' }}', '{{ r.phone or '' }}')" style="background:none; border:none; color:#2563eb; cursor:pointer; font-size:0.95em; padding:2px 5px;" title="Editar contato">
+                                ✏️
+                            </button>
+                            <form method="POST" action="{{ url_for('ramais_deletar', ramal_id=r.id) }}" onsubmit="return confirm('Excluir este contato da lista de ramais?');" style="display:inline; margin:0;">
+                                <button type="submit" style="background:none; border:none; color:#dc2626; cursor:pointer; font-size:0.95em; padding:2px 5px;" title="Apagar contato">
+                                    🗑️
+                                </button>
+                            </form>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
@@ -653,148 +767,60 @@
 
 </div>
 
-<!-- SCRIPT DE GERENCIAMENTO DE ABAS E DADOS DE RAMAIS -->
+<!-- MODAL DE EDIÇÃO DE RAMAL (RH / ADMIN) -->
+{% if current_user.is_hr or current_user.is_admin %}
+<div id="modalEditarRamal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center;">
+    <div style="background: white; border-radius: 8px; padding: 22px; max-width: 550px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+        <h3 style="margin: 0 0 15px 0; color: #1e3a8a;">✏️ Editar Informações do Ramal</h3>
+        <form id="formEditarRamal" method="POST" action="">
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+                <div style="flex: 1 1 150px;">
+                    <label style="font-size: 0.82em; font-weight: bold; color: #475569;">Unidade</label>
+                    <select id="edit_ramal_unit" name="unit" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                        <option value="Campina Grande">Campina Grande</option>
+                        <option value="João Pessoa">João Pessoa</option>
+                    </select>
+                </div>
+                <div style="flex: 1 1 180px;">
+                    <label style="font-size: 0.82em; font-weight: bold; color: #475569;">Setor</label>
+                    <input type="text" id="edit_ramal_sector" name="sector" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+                <div style="flex: 1 1 180px;">
+                    <label style="font-size: 0.82em; font-weight: bold; color: #475569;">Cargo / Função</label>
+                    <input type="text" id="edit_ramal_role" name="role_name" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                </div>
+                <div style="flex: 1 1 180px;">
+                    <label style="font-size: 0.82em; font-weight: bold; color: #475569;">Nome</label>
+                    <input type="text" id="edit_ramal_name" name="name" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px;">
+                <div style="flex: 1 1 100px;">
+                    <label style="font-size: 0.82em; font-weight: bold; color: #475569;">Ramal</label>
+                    <input type="text" id="edit_ramal_ext" name="extension" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                </div>
+                <div style="flex: 1 1 180px;">
+                    <label style="font-size: 0.82em; font-weight: bold; color: #475569;">E-mail</label>
+                    <input type="text" id="edit_ramal_email" name="email" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                </div>
+                <div style="flex: 1 1 160px;">
+                    <label style="font-size: 0.82em; font-weight: bold; color: #475569;">Celular</label>
+                    <input type="text" id="edit_ramal_phone" name="phone" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" onclick="fecharModalEditarRamal()" style="padding: 8px 16px; background: #94a3b8; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancelar</button>
+                <button type="submit" style="padding: 8px 18px; background: #2563eb; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">💾 Salvar Alterações</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<!-- SCRIPTS DE INTERATIVIDADE -->
 <script>
-    // DADOS OFICIAIS DOS RAMAIS (GAMA CAMINHÕES)
-    const LISTA_RAMAIS = [
-        // CAMPINA GRANDE
-        { unidade: "CAMPINA GRANDE", setor: "DIRETORIA", cargo: "DIREÇÃO", nome: "ANDRÉ GAMA", ramal: "5654", email: "andre@gamacaminhoes.com.br", celular: "(83) 98844-5096" },
-        { unidade: "CAMPINA GRANDE", setor: "RECURSOS HUMANOS", cargo: "RH", nome: "KARINA", ramal: "4524", email: "rh@gamacaminhoes.com.br", celular: "(83) 99679-0145" },
-        { unidade: "CAMPINA GRANDE", setor: "TÉCNICO DE INFORMÁTICA", cargo: "TI", nome: "ERICK", ramal: "-", email: "informatica@gamacaminhoes.com.br", celular: "(83) 98877-0263" },
-        { unidade: "CAMPINA GRANDE", setor: "TÉCNICO DE INFORMÁTICA", cargo: "ESTAGIÁRIO DE TI", nome: "JONATHAN", ramal: "-", email: "aux.informatica@gamacaminhoes.com.br", celular: "(83) 99944-0467" },
-        { unidade: "CAMPINA GRANDE", setor: "CRÉDITO E COBRANÇA", cargo: "CRÉDITO E COBRANÇA", nome: "GERLANDIA", ramal: "4525", email: "creditoecobranca@gamacaminhoes.com.br", celular: "(83) 99609-5222" },
-        { unidade: "CAMPINA GRANDE", setor: "CONTABILIDADE", cargo: "GESTORA", nome: "DAYSE", ramal: "5658", email: "contabilidade@gamacaminhoes.com.br", celular: "(83) 99135-0151" },
-        { unidade: "CAMPINA GRANDE", setor: "CONTABILIDADE", cargo: "RH", nome: "ANA", ramal: "5651", email: "analistarh@gamaautos.com.br", celular: "(83) 99135-0151" },
-        { unidade: "CAMPINA GRANDE", setor: "CONTABILIDADE", cargo: "ASSISTENTE CONTÁBIL", nome: "PRISCILA", ramal: "5651", email: "contabilidade04@gamacaminhoes.com.br", celular: "(83) 99135-0151" },
-        { unidade: "CAMPINA GRANDE", setor: "CONTABILIDADE", cargo: "ASSISTENTE CONTÁBIL", nome: "ALANNA", ramal: "5651", email: "contabilidade02@gamacaminhoes.com.br", celular: "(83) 99135-0151" },
-        { unidade: "CAMPINA GRANDE", setor: "CONTABILIDADE", cargo: "ASSISTENTE CONTÁBIL", nome: "TAMIRES", ramal: "5651", email: "contabilidade01@gamacaminhoes.com.br", celular: "(83) 99135-0151" },
-        { unidade: "CAMPINA GRANDE", setor: "CONTABILIDADE", cargo: "ASSIST. DE QUALIDADE", nome: "ANDRIELLI", ramal: "5651", email: "qualidade@gamacaminhoes.com.br", celular: "(83) 99837-0014" },
-        { unidade: "CAMPINA GRANDE", setor: "CONTABILIDADE", cargo: "ASSISTENTE CONTÁBIL", nome: "MÁRCIA C.", ramal: "5651", email: "contabilidade03@gamacaminhoes.com.br", celular: "(83) 99135-0151" },
-        { unidade: "CAMPINA GRANDE", setor: "CRM / AGENDAMENTO", cargo: "CRM", nome: "SAMYRA", ramal: "-", email: "agendamento@grupogama.com.br", celular: "(79) 99814-3486" },
-        { unidade: "CAMPINA GRANDE", setor: "CRM / AGENDAMENTO", cargo: "AGENDAMENTO CRM", nome: "FABRICIA", ramal: "4521", email: "agendamentocg@gamacaminhoes.com.br", celular: "(83) 99626-9219" },
-        { unidade: "CAMPINA GRANDE", setor: "CRM / AGENDAMENTO", cargo: "TELE PEÇAS", nome: "FELIPE BARBOSA", ramal: "4517", email: "televendas@gamacaminhoes.com.br", celular: "(83) 99937-0026" },
-        { unidade: "CAMPINA GRANDE", setor: "FINANCEIRO", cargo: "CAIXA", nome: "FABIANA", ramal: "4500", email: "financeiro@gamacaminhoes.com.br", celular: "(83) 99156-1706" },
-        { unidade: "CAMPINA GRANDE", setor: "MOTORISTA", cargo: "MOTORISTA", nome: "FABIO", ramal: "-", email: "-", celular: "(83) 99143-9364" },
-        { unidade: "CAMPINA GRANDE", setor: "VEICULOS NOVOS", cargo: "GERENTE DE VENDAS", nome: "HUMBERTO SOBRAL", ramal: "4516", email: "gvcg@gamacaminhoes.com.br", celular: "(83) 98877-0259" },
-        { unidade: "CAMPINA GRANDE", setor: "VEICULOS NOVOS", cargo: "RECEPÇÃO VENDAS", nome: "CAROLINA", ramal: "4513", email: "assistentevendas@gamacaminhoes.com.br", celular: "(83) 99837-0011" },
-        { unidade: "CAMPINA GRANDE", setor: "VEICULOS NOVOS", cargo: "ASSISTENTE DE VENDAS", nome: "JOSÉLIA", ramal: "4515", email: "vendas@gamacaminhoes.com.br", celular: "(83) 98844-6965" },
-        { unidade: "CAMPINA GRANDE", setor: "VEICULOS NOVOS", cargo: "VENDEDOR", nome: "HUGO", ramal: "227", email: "hugo@gamacaminhoes.com.br", celular: "(83) 99151-9301" },
-        { unidade: "CAMPINA GRANDE", setor: "VEICULOS NOVOS", cargo: "VENDEDOR", nome: "GENALDO", ramal: "-", email: "genaldo@gamacaminhoes.com.br", celular: "(83) 99609-5253" },
-        { unidade: "CAMPINA GRANDE", setor: "VEICULOS NOVOS", cargo: "VENDEDOR", nome: "WILLIAMS", ramal: "-", email: "williams@gamacaminhoes.com.br", celular: "(83) 98844-5098" },
-        { unidade: "CAMPINA GRANDE", setor: "VEICULOS NOVOS", cargo: "ENTREGADOR TÉCNICO", nome: "DIMITRI", ramal: "229", email: "vendas2cg@gamacaminhoes.com.br", celular: "(83) 99914-0036" },
-        { unidade: "CAMPINA GRANDE", setor: "VEICULOS NOVOS", cargo: "PROF DRIVE", nome: "-", ramal: "-", email: "profdrive@gamacaminhoes.com.br", celular: "(83) 99699-0019" },
-        { unidade: "CAMPINA GRANDE", setor: "VEICULOS NOVOS", cargo: "VOLKSCARE CG – APM", nome: "MAURÍCIO", ramal: "-", email: "volkscare.cg@gamacaminhoes.com.br", celular: "(83) 98844-6972" },
-        { unidade: "CAMPINA GRANDE", setor: "ASSISTÊNCIA TÉCNICA", cargo: "GERENTE DE PÓS VENDA", nome: "-", ramal: "4511", email: "at2@gamacaminhoes.com.br", celular: "(83) 98844-6974" },
-        { unidade: "CAMPINA GRANDE", setor: "ASSISTÊNCIA TÉCNICA", cargo: "ASSISTENTE RECEPÇÃO", nome: "MARIANNA", ramal: "4510", email: "atcg@gamacaminhoes.com.br", celular: "(83) 98844-6967" },
-        { unidade: "CAMPINA GRANDE", setor: "ASSISTÊNCIA TÉCNICA", cargo: "ASSISTENTE RECEPÇÃO", nome: "ANGÉLICA", ramal: "4510", email: "atcg@gamacaminhoes.com.br", celular: "(83) 98844-6967" },
-        { unidade: "CAMPINA GRANDE", setor: "ASSISTÊNCIA TÉCNICA", cargo: "ASSISTENTE ADM", nome: "IVILY", ramal: "4520", email: "atcg2@gamacaminhoes.com.br", celular: "(83) 99679-0134" },
-        { unidade: "CAMPINA GRANDE", setor: "ASSISTÊNCIA TÉCNICA", cargo: "CHEFE DE OFICINA", nome: "MARCELO", ramal: "-", email: "cocg@gamacaminhoes.com.br", celular: "(83) 99699-0010" },
-        { unidade: "CAMPINA GRANDE", setor: "ASSISTÊNCIA TÉCNICA", cargo: "CONSULTOR TÉCNICO", nome: "NYELSON", ramal: "4503", email: "at@gamacaminhoes.com.br", celular: "(83) 99807-0135" },
-        { unidade: "CAMPINA GRANDE", setor: "ASSISTÊNCIA TÉCNICA", cargo: "CHAMEVOLKS", nome: "MECANICOS", ramal: "-", email: "-", celular: "(83) 99126-2294" },
-        { unidade: "CAMPINA GRANDE", setor: "ASSISTÊNCIA TÉCNICA", cargo: "GARANTIA", nome: "LINDAYANE", ramal: "-", email: "garantia@gamacaminhoes.com.br", celular: "(83) 99679-0090" },
-        { unidade: "CAMPINA GRANDE", setor: "ACESSORIOS / PECAS", cargo: "GERENTE DE PEÇAS", nome: "CARLOS ANDRÉ", ramal: "4509", email: "pecas@gamacaminhoes.com.br", celular: "(83) 98877-0262" },
-        { unidade: "CAMPINA GRANDE", setor: "ACESSORIOS / PECAS", cargo: "VENDEDOR PEÇAS", nome: "MARCOS", ramal: "4505", email: "pecas02.cg@gamacaminhoes.com.br", celular: "(83) 98844-6970" },
-        { unidade: "CAMPINA GRANDE", setor: "ACESSORIOS / PECAS", cargo: "VENDEDOR PEÇAS", nome: "RAFAEL", ramal: "4507", email: "pecas01.cg@gamacaminhoes.com.br", celular: "(83) 99157-9736" },
-        { unidade: "CAMPINA GRANDE", setor: "ACESSORIOS / PECAS", cargo: "VENDEDOR PNEUS", nome: "MICHELLE", ramal: "4506", email: "pneus1@gamacaminhoes.com.br", celular: "(83) 99609-5432" },
-        { unidade: "CAMPINA GRANDE", setor: "ACESSORIOS / PECAS", cargo: "SUPERVISOR ESTOQUE", nome: "CLAUDIO", ramal: "4514", email: "supervisao01.cg@gamacaminhoes.com.br", celular: "(83) 98844-6968" },
-        { unidade: "CAMPINA GRANDE", setor: "ACESSORIOS / PECAS", cargo: "ASSIST. ADM", nome: "LAIS", ramal: "4514", email: "estoque.cg@gamacaminhoes.com.br", celular: "(83) 99837-0012" },
-        { unidade: "CAMPINA GRANDE", setor: "ACESSORIOS / PECAS", cargo: "FERRAMENTARIA", nome: "ILKINSON", ramal: "4523", email: "estoque2@gamacaminhoes.com.br", celular: "(83) 99807-0410" },
-        { unidade: "CAMPINA GRANDE", setor: "ACESSORIOS / PECAS", cargo: "ESTOQUISTA", nome: "DIEGO", ramal: "4514", email: "estoque2@gamacaminhoes.com.br", celular: "(83) 99679-0147" },
-        { unidade: "CAMPINA GRANDE", setor: "ACESSORIOS / PECAS", cargo: "ESTOQUISTA", nome: "IVANILDO", ramal: "4514", email: "estoque2@gamacaminhoes.com.br", celular: "(83) 99679-0147" },
-
-        // JOÃO PESSOA
-        { unidade: "JOÃO PESSOA", setor: "FINANCEIRO", cargo: "CAIXA", nome: "MAIZA", ramal: "5653", email: "cpagar@gamacaminhoes.com.br", celular: "(83) 98877-0264" },
-        { unidade: "JOÃO PESSOA", setor: "MOTORISTA", cargo: "MOTORISTA", nome: "MOISÉS", ramal: "-", email: "-", celular: "(83) 98802-5674" },
-        { unidade: "JOÃO PESSOA", setor: "VEICULOS NOVOS", cargo: "SUPERVISOR", nome: "-", ramal: "-", email: "svjp@gamacaminhoes.com.br", celular: "(83) 99837-0013" },
-        { unidade: "JOÃO PESSOA", setor: "VEICULOS NOVOS", cargo: "VOLKSCARE JP – APM", nome: "RAFAEL", ramal: "-", email: "volkscare.jp@gamacaminhoes.com.br", celular: "(83) 98849-1567" },
-        { unidade: "JOÃO PESSOA", setor: "VEICULOS NOVOS", cargo: "VENDEDOR", nome: "PAULO HENRIQUE", ramal: "5652", email: "paulo@gamacaminhoes.com.br", celular: "(83) 99609-5200" },
-        { unidade: "JOÃO PESSOA", setor: "VEICULOS NOVOS", cargo: "ASSISTENTE VENDAS", nome: "SANDRA", ramal: "5666", email: "vendas3jp@gamacaminhoes.com.br", celular: "(83) 98844-6973" },
-        { unidade: "JOÃO PESSOA", setor: "VEICULOS NOVOS", cargo: "ASSISTENTE VENDAS", nome: "LUCAS", ramal: "5672", email: "vendas2jp@gamacaminhoes.com.br", celular: "(83) 99837-0001" },
-        { unidade: "JOÃO PESSOA", setor: "VEICULOS NOVOS", cargo: "ASSISTENTE VENDAS", nome: "ABRAHÃO", ramal: "5672", email: "vendas2jp@gamacaminhoes.com.br", celular: "(83) 99837-0001" },
-        { unidade: "JOÃO PESSOA", setor: "VEICULOS NOVOS", cargo: "VENDEDOR", nome: "CLEDSON", ramal: "5652", email: "cledson@gamacaminhoes.com.br", celular: "(83) 98844-5097" },
-        { unidade: "JOÃO PESSOA", setor: "VEICULOS NOVOS", cargo: "VENDEDOR", nome: "PAULO GABRIEL", ramal: "5652", email: "paulo.gabriel@gamacaminhoes.com.br", celular: "(83) 98758-7680" },
-        { unidade: "JOÃO PESSOA", setor: "ASSISTÊNCIA TÉCNICA", cargo: "GERENTE", nome: "HUMBERTO", ramal: "5661", email: "at.jp@gamacaminhoes.com.br", celular: "(83) 98844-6975" },
-        { unidade: "JOÃO PESSOA", setor: "ASSISTÊNCIA TÉCNICA", cargo: "ASSISTENTE ADM", nome: "ALESSANDRA", ramal: "5667", email: "at.jp2@gamacaminhoes.com.br", celular: "(83) 98877-0260" },
-        { unidade: "JOÃO PESSOA", setor: "ASSISTÊNCIA TÉCNICA", cargo: "CHAMEVOLKS", nome: "MECANICOS", ramal: "-", email: "-", celular: "(83) 98802-5673" },
-        { unidade: "JOÃO PESSOA", setor: "ASSISTÊNCIA TÉCNICA", cargo: "GARANTIA", nome: "JUAN", ramal: "5657", email: "auxgarantia@gamacaminhoes.com.br", celular: "(83) 99819-1555" },
-        { unidade: "JOÃO PESSOA", setor: "ASSISTÊNCIA TÉCNICA", cargo: "CONSULTOR(A) TÉCNICO", nome: "JULIENDY", ramal: "5659", email: "at1.jp@gamacaminhoes.com.br", celular: "(83) 99609-5400" },
-        { unidade: "JOÃO PESSOA", setor: "ASSISTÊNCIA TÉCNICA", cargo: "CONSULTORA TÉCNICA", nome: "TATIANE", ramal: "5660", email: "at2.jp@gamacaminhoes.com.br", celular: "(83) 99175-8900" },
-        { unidade: "JOÃO PESSOA", setor: "ASSISTÊNCIA TÉCNICA", cargo: "OFICINA", nome: "MECANICOS", ramal: "5673", email: "-", celular: "-" },
-        { unidade: "JOÃO PESSOA", setor: "ACESSORIOS / PECAS", cargo: "VENDOR DE PEÇAS", nome: "BRUNO", ramal: "5665", email: "pecas.jp@gamacaminhoes.com.br", celular: "(83) 98844-6966" },
-        { unidade: "JOÃO PESSOA", setor: "ACESSORIOS / PECAS", cargo: "VENDOR DE PEÇAS", nome: "ESTEFANIA", ramal: "5664", email: "pecas01.jp@gamacaminhoes.com.br", celular: "(83) 99807-0290" },
-        { unidade: "JOÃO PESSOA", setor: "ACESSORIOS / PECAS", cargo: "ASSISTENTE ADM", nome: "JULIANA", ramal: "-", email: "pecas03.jp@gamacaminhoes.com.br", celular: "(83) 99807-0390" },
-        { unidade: "JOÃO PESSOA", setor: "ACESSORIOS / PECAS", cargo: "FERRAMENTARIA", nome: "RONALDO", ramal: "5656", email: "estoque.jp@gamacaminhoes.com.br", celular: "(83) 99807-0119" },
-        { unidade: "JOÃO PESSOA", setor: "ACESSORIOS / PECAS", cargo: "ESTOQUISTA", nome: "PEDRO MANUEL", ramal: "5655", email: "estoque2.jp@gamacaminhoes.com.br", celular: "(83) 99679-0146" },
-        { unidade: "JOÃO PESSOA", setor: "ACESSORIOS / PECAS", cargo: "ESTOQUISTA", nome: "YAGO", ramal: "5655", email: "estoque2.jp@gamacaminhoes.com.br", celular: "(83) 99679-0146" }
-    ];
-
-    let filtroUnidadeAtual = "TODAS";
-
-    function renderizarTabelaRamais(termoBusca = "") {
-        const tbody = document.getElementById("corpoTabelaRamais");
-        if (!tbody) return;
-        tbody.innerHTML = "";
-
-        const termo = termoBusca.toLowerCase().trim();
-
-        const filtrados = LISTA_RAMAIS.filter(item => {
-            const matchesUnidade = filtroUnidadeAtual === "TODAS" || item.unidade === filtroUnidadeAtual;
-            const matchesTermo = termo === "" ||
-                item.nome.toLowerCase().includes(termo) ||
-                item.setor.toLowerCase().includes(termo) ||
-                item.cargo.toLowerCase().includes(termo) ||
-                item.ramal.includes(termo) ||
-                item.email.toLowerCase().includes(termo) ||
-                item.celular.includes(termo);
-            return matchesUnidade && matchesTermo;
-        });
-
-        if (filtrados.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:25px; color:#94a3b8; font-style:italic;">Nenhum contato encontrado com os filtros atuais.</td></tr>`;
-            return;
-        }
-
-        filtrados.forEach(r => {
-            const tr = document.createElement("tr");
-            const badgeCol = r.unidade === "CAMPINA GRANDE" ? "#2563eb" : "#d97706";
-            
-            tr.innerHTML = `
-                <td>
-                    <span style="background:${badgeCol}; color:white; font-size:0.75em; padding:2px 7px; border-radius:4px; font-weight:bold;">
-                        ${r.unidade === "CAMPINA GRANDE" ? "Campina Grande" : "João Pessoa"}
-                    </span>
-                </td>
-                <td>
-                    <strong>${r.setor}</strong><br>
-                    <small style="color:#64748b;">${r.cargo}</small>
-                </td>
-                <td><strong style="color:#0f172a;">${r.nome}</strong></td>
-                <td style="text-align:center;">
-                    ${r.ramal !== "-" ? `<strong style="color:#1d4ed8; font-size:1.1em; background:#eff6ff; padding:3px 8px; border-radius:4px; border:1px solid #bfdbfe;">${r.ramal}</strong>` : `<span style="color:#94a3b8;">-</span>`}
-                </td>
-                <td>
-                    ${r.email !== "-" ? `<a href="mailto:${r.email}" style="color:#2563eb; text-decoration:none; font-size:0.9em;">${r.email}</a>` : `<span style="color:#94a3b8;">-</span>`}
-                </td>
-                <td>
-                    ${r.celular !== "-" ? `<a href="tel:${r.celular.replace(/\D/g,'')}" style="color:#059669; text-decoration:none; font-weight:600; font-size:0.9em;">${r.celular}</a>` : `<span style="color:#94a3b8;">-</span>`}
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
-    }
-
-    function filtrarTabelaRamais() {
-        const input = document.getElementById("buscaRamalInput");
-        renderizarTabelaRamais(input ? input.value : "");
-    }
-
-    function filtrarUnidadeRamal(unidade, btn) {
-        filtroUnidadeAtual = unidade;
-        document.querySelectorAll(".btn-filtro-ramal").forEach(b => b.classList.remove("btn-filtro-ramal-ativo"));
-        if (btn) btn.classList.add("btn-filtro-ramal-ativo");
-        filtrarTabelaRamais();
-    }
-
     // ================= CONTROLE DE ABAS =================
     function trocarAba(aba) {
         const abas = ['cofre', 'mural', 'ramais'];
@@ -807,10 +833,6 @@
                 else btn.classList.remove('btn-aba-ativa');
             }
         });
-
-        if (aba === 'ramais') {
-            renderizarTabelaRamais();
-        }
     }
 
     // ================= FUNÇÕES DO COFRE =================
@@ -826,11 +848,11 @@
             if (real.style.display === 'none') {
                 real.style.display = 'inline';
                 mask.style.display = 'none';
-                btn.textContent = '[Ocultar]';
+                btn.textContent = 'Ocultar';
             } else {
                 real.style.display = 'none';
                 mask.style.display = 'inline';
-                btn.textContent = '[Ver]';
+                btn.textContent = 'Ver';
             }
         }
     }
@@ -842,11 +864,11 @@
             if (real.style.display === 'none') {
                 real.style.display = 'inline';
                 mask.style.display = 'none';
-                btn.textContent = '[Ocultar]';
+                btn.textContent = 'Ocultar';
             } else {
                 real.style.display = 'none';
                 mask.style.display = 'inline';
-                btn.textContent = '[Ver]';
+                btn.textContent = 'Ver';
             }
         }
     }
@@ -880,15 +902,15 @@
     function copiarSenhaDireta(senha, btn) {
         navigator.clipboard.writeText(senha).then(() => {
             const orig = btn.textContent;
-            btn.textContent = '[Copiado!]';
-            btn.style.color = '#059669';
-            setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 2000);
+            btn.textContent = 'Copiado!';
+            btn.style.backgroundColor = '#059669';
+            setTimeout(() => { btn.textContent = orig; btn.style.backgroundColor = ''; }, 2000);
         }).catch(() => {
             const ta = document.createElement('textarea');
             ta.value = senha; document.body.appendChild(ta); ta.select();
             document.execCommand('copy'); document.body.removeChild(ta);
-            btn.textContent = '[Copiado!]';
-            setTimeout(() => { btn.textContent = '[Copiar]'; }, 2000);
+            btn.textContent = 'Copiado!';
+            setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
         });
     }
 
@@ -961,6 +983,73 @@
         cards.forEach(c => container.appendChild(c));
     }
 
+    // ================= FILTRO DE RAMAIS =================
+    let filtroUnidadeRamalAtual = "TODAS";
+
+    function filtrarTabelaRamais() {
+        const termo = (document.getElementById('buscaRamalInput')?.value || '').toLowerCase().trim();
+        const linhas = document.querySelectorAll('.linha-ramal');
+
+        linhas.forEach(linha => {
+            const unidade = linha.dataset.unidade || '';
+            const nome = (linha.dataset.nome || '').toLowerCase();
+            const setor = (linha.dataset.setor || '').toLowerCase();
+            const cargo = (linha.dataset.cargo || '').toLowerCase();
+            const ramal = (linha.dataset.ramal || '').toLowerCase();
+            const email = (linha.dataset.email || '').toLowerCase();
+            const phone = (linha.dataset.phone || '').toLowerCase();
+
+            const matchesUnidade = filtroUnidadeRamalAtual === "TODAS" || unidade.toLowerCase().includes(filtroUnidadeRamalAtual.toLowerCase());
+            const matchesTermo = termo === '' ||
+                nome.includes(termo) ||
+                setor.includes(termo) ||
+                cargo.includes(termo) ||
+                ramal.includes(termo) ||
+                email.includes(termo) ||
+                phone.includes(termo);
+
+            if (matchesUnidade && matchesTermo) {
+                linha.style.display = '';
+            } else {
+                linha.style.display = 'none';
+            }
+        });
+    }
+
+    function filtrarUnidadeRamal(unidade, btn) {
+        filtroUnidadeRamalAtual = unidade;
+        document.querySelectorAll(".btn-filtro-ramal").forEach(b => b.classList.remove("btn-filtro-ramal-ativo"));
+        if (btn) btn.classList.add("btn-filtro-ramal-ativo");
+        filtrarTabelaRamais();
+    }
+
+    function toggleFormAdicionarRamal() {
+        const box = document.getElementById('box-novo-ramal');
+        if (box) box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function abrirModalEditarRamal(id, unit, sector, role, name, ext, email, phone) {
+        const modal = document.getElementById('modalEditarRamal');
+        const form = document.getElementById('formEditarRamal');
+        if (!modal || !form) return;
+        
+        form.action = '/ramais/editar/' + id;
+        document.getElementById('edit_ramal_unit').value = unit;
+        document.getElementById('edit_ramal_sector').value = sector;
+        document.getElementById('edit_ramal_role').value = role;
+        document.getElementById('edit_ramal_name').value = name;
+        document.getElementById('edit_ramal_ext').value = ext;
+        document.getElementById('edit_ramal_email').value = email;
+        document.getElementById('edit_ramal_phone').value = phone;
+
+        modal.style.display = 'flex';
+    }
+
+    function fecharModalEditarRamal() {
+        const modal = document.getElementById('modalEditarRamal');
+        if (modal) modal.style.display = 'none';
+    }
+
     // ================= FORÇA DE SENHA =================
     function checkStrength(val, barId, lblId) {
         const bar = document.getElementById(barId);
@@ -1008,10 +1097,5 @@
         input.type = input.type === 'password' ? 'text' : 'password';
         btn.textContent = input.type === 'password' ? '👁️' : '👁️‍🗨️';
     }
-
-    // Inicialização ao carregar a página
-    document.addEventListener("DOMContentLoaded", () => {
-        renderizarTabelaRamais();
-    });
 </script>
 {% endblock %}

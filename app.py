@@ -153,6 +153,20 @@ class UserNotification(db.Model):
     
     user = db.relationship('User', backref=db.backref('user_notifications', lazy='dynamic', cascade='all, delete-orphan'))
 
+
+class CompanyExtension(db.Model):
+    """Lista oficial de ramais e contatos da Gama Caminhões."""
+    __tablename__ = 'company_extension'
+    id = db.Column(db.Integer, primary_key=True)
+    unit = db.Column(db.String(50), nullable=False) # 'Campina Grande' ou 'João Pessoa'
+    sector = db.Column(db.String(100), nullable=False)
+    role_name = db.Column(db.String(100), nullable=True)
+    name = db.Column(db.String(120), nullable=False)
+    extension = db.Column(db.String(20), nullable=True)
+    email = db.Column(db.String(150), nullable=True)
+    phone = db.Column(db.String(50), nullable=True)
+    display_order = db.Column(db.Integer, default=0)
+
 class AuditLog(db.Model):
     """Log de auditoria global do sistema."""
     id = db.Column(db.Integer, primary_key=True)
@@ -798,11 +812,13 @@ def dashboard():
     last_view = current_user.last_announcement_view or datetime.min
     avisos_nao_lidos = [a for a in avisos if a.created_at > last_view]
         
+    ramais_db = CompanyExtension.query.order_by(CompanyExtension.unit.asc(), CompanyExtension.sector.asc(), CompanyExtension.name.asc()).all()
     return render_template('dashboard.html', 
         entries=decrypted_entries, 
         shared_entries=shared_entries,
         avisos=avisos, 
-        avisos_nao_lidos=avisos_nao_lidos
+        avisos_nao_lidos=avisos_nao_lidos,
+        ramais=ramais_db
     )
 
 @app.route('/compartilhar_senha/<int:pass_id>', methods=['POST'])
@@ -1516,6 +1532,170 @@ def obter_logs_auditoria_filtrados(args):
     }
     return query, filtros
 
+
+# ================= ROTAS DE GESTÃO DE RAMAIS =================
+@app.route('/ramais/adicionar', methods=['POST'])
+@login_required
+def ramais_adicionar():
+    if not (current_user.is_admin or current_user.is_hr):
+        flash('Acesso restrito ao RH e Administradores.', 'error')
+        return redirect(url_for('dashboard'))
+        
+    unit = request.form.get('unit', '').strip() or 'Campina Grande'
+    sector = request.form.get('sector', '').strip().upper()
+    role_name = request.form.get('role_name', '').strip().upper()
+    name = request.form.get('name', '').strip().upper()
+    extension = request.form.get('extension', '').strip() or '-'
+    email = request.form.get('email', '').strip() or '-'
+    phone = request.form.get('phone', '').strip() or '-'
+    
+    if not name or not sector:
+        flash('Nome e Setor são obrigatórios.', 'error')
+        return redirect(url_for('dashboard'))
+        
+    novo_ramal = CompanyExtension(
+        unit=unit,
+        sector=sector,
+        role_name=role_name,
+        name=name,
+        extension=extension,
+        email=email,
+        phone=phone
+    )
+    db.session.add(novo_ramal)
+    db.session.commit()
+    registrar_auditoria('RAMAL_ADICIONADO', f'O RH/Admin "{current_user.username}" adicionou o contato "{name}" ({unit} - Ramal {extension}).')
+    flash(f'Contato "{name}" adicionado à lista de ramais com sucesso!', 'success')
+    return redirect(url_for('dashboard'))
+
+@app.route('/ramais/editar/<int:ramal_id>', methods=['POST'])
+@login_required
+def ramais_editar(ramal_id):
+    if not (current_user.is_admin or current_user.is_hr):
+        flash('Acesso restrito ao RH e Administradores.', 'error')
+        return redirect(url_for('dashboard'))
+        
+    ramal = CompanyExtension.query.get_or_404(ramal_id)
+    ramal.unit = request.form.get('unit', ramal.unit).strip()
+    ramal.sector = request.form.get('sector', ramal.sector).strip().upper()
+    ramal.role_name = request.form.get('role_name', ramal.role_name).strip().upper()
+    ramal.name = request.form.get('name', ramal.name).strip().upper()
+    ramal.extension = request.form.get('extension', ramal.extension).strip() or '-'
+    ramal.email = request.form.get('email', ramal.email).strip() or '-'
+    ramal.phone = request.form.get('phone', ramal.phone).strip() or '-'
+    
+    db.session.commit()
+    registrar_auditoria('RAMAL_EDITADO', f'O RH/Admin "{current_user.username}" atualizou as informações do contato "{ramal.name}".')
+    flash(f'Contato "{ramal.name}" atualizado com sucesso!', 'success')
+    return redirect(url_for('dashboard'))
+
+@app.route('/ramais/deletar/<int:ramal_id>', methods=['POST'])
+@login_required
+def ramais_deletar(ramal_id):
+    if not (current_user.is_admin or current_user.is_hr):
+        flash('Acesso restrito ao RH e Administradores.', 'error')
+        return redirect(url_for('dashboard'))
+        
+    ramal = CompanyExtension.query.get_or_404(ramal_id)
+    nome = ramal.name
+    db.session.delete(ramal)
+    db.session.commit()
+    registrar_auditoria('RAMAL_REMOVIDO', f'O RH/Admin "{current_user.username}" removeu o contato "{nome}" da lista de ramais.')
+    flash(f'Contato "{nome}" removido com sucesso!', 'success')
+    return redirect(url_for('dashboard'))
+
+@app.route('/ramais/exportar_pdf')
+@login_required
+def exportar_ramais_pdf():
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    import io
+    
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=25, leftMargin=25, topMargin=25, bottomMargin=25)
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    title_style = ParagraphStyle(
+        'DocTitle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=15,
+        leading=18,
+        alignment=1,
+        textColor=colors.HexColor('#0b1329')
+    )
+    subtitle_style = ParagraphStyle(
+        'DocSub',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=9,
+        leading=12,
+        alignment=1,
+        textColor=colors.HexColor('#475569')
+    )
+    pabx_style = ParagraphStyle(
+        'PabxStyle',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=7.5,
+        leading=10,
+        alignment=1,
+        textColor=colors.HexColor('#166534')
+    )
+    
+    elements.append(Paragraph("<b>GAMA CAMINHÕES & ÔNIBUS — LISTA DE RAMAIS OFICIAL</b>", title_style))
+    elements.append(Paragraph(f"Atualização Oficial do RH: {get_br_time().strftime('%d/%m/%Y às %H:%M')}", subtitle_style))
+    elements.append(Spacer(1, 6))
+    elements.append(Paragraph("<b>PABX:</b> Transferir: FLASH + RAMAL | Retornar se ocupado: FLASH + # + 0 | Atender específico: # + 5 RAMAL + * | Atender qualquer: FLASH + 22<br/><b>Campina Grande:</b> (83) 3315-4500 | <b>João Pessoa:</b> (83) 3215-5666", pabx_style))
+    elements.append(Spacer(1, 8))
+    
+    ramais = CompanyExtension.query.order_by(CompanyExtension.unit.asc(), CompanyExtension.sector.asc(), CompanyExtension.name.asc()).all()
+    
+    data = [["Unidade", "Setor / Cargo", "Nome", "Ramal", "E-mail", "Celular"]]
+    
+    cell_style = ParagraphStyle('Cell', fontName='Helvetica', fontSize=7.5, leading=9.5)
+    cell_bold = ParagraphStyle('CellB', fontName='Helvetica-Bold', fontSize=7.5, leading=9.5)
+    cell_ext = ParagraphStyle('CellExt', fontName='Helvetica-Bold', fontSize=8.5, leading=10.5, alignment=1, textColor=colors.HexColor('#1d4ed8'))
+    
+    for r in ramais:
+        u_short = "Campina Grande" if "CAMPINA" in r.unit.upper() else "João Pessoa"
+        setor_txt = f"<b>{r.sector}</b><br/>{r.role_name or ''}"
+        data.append([
+            Paragraph(u_short, cell_style),
+            Paragraph(setor_txt, cell_style),
+            Paragraph(f"<b>{r.name}</b>", cell_bold),
+            Paragraph(r.extension or "-", cell_ext),
+            Paragraph(r.email or "-", cell_style),
+            Paragraph(r.phone or "-", cell_style)
+        ])
+    
+    col_widths = [75, 110, 110, 45, 125, 80]
+    t = Table(data, colWidths=col_widths, repeatRows=1)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0b1329')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+        ('TOPPADDING', (0, 0), (-1, 0), 4),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')])
+    ]))
+    
+    elements.append(t)
+    doc.build(elements)
+    buffer.seek(0)
+    
+    return Response(
+        buffer.getvalue(),
+        mimetype='application/pdf',
+        headers={"Content-Disposition": "attachment; filename=Lista_de_Ramais_Gama_Caminhoes.pdf"}
+    )
+
 @app.route('/admin/auditoria')
 @login_required
 def admin_auditoria():
@@ -1628,6 +1808,27 @@ def rh_novo_aviso():
                 )
                 db.session.add(novo_arq)
                 count += 1
+        db.session.commit()
+        status_msg = "urgente " if is_urgent else ""
+        nome_autor = current_user.display_name or current_user.username
+        if is_urgent:
+            msg_notif = f"Um novo aviso foi adicionado por {nome_autor} e tem caráter urgente."
+        else:
+            msg_notif = f"Um novo aviso foi adicionado por {nome_autor}."
+            
+        usuarios = User.query.all()
+        for u in usuarios:
+            if u.id == current_user.id:
+                continue
+            if target_unit and target_unit != 'Todas' and (u.unit or '').strip() != target_unit and not (u.is_admin or u.is_hr):
+                continue
+            notif = UserNotification(
+                user_id=u.id,
+                title="Aviso do RH",
+                message=msg_notif,
+                notification_type='announcement'
+            )
+            db.session.add(notif)
         db.session.commit()
         status_msg = "urgente " if is_urgent else ""
         registrar_auditoria('AVISO_CRIADO', f'O RH/Admin "{current_user.username}" publicou um aviso {status_msg}para "{target_unit}": "{titulo}".')
@@ -1815,6 +2016,99 @@ def baixar_arquivo_aviso(file_id):
     return send_file(io.BytesIO(arq.file_data), download_name=arq.filename, as_attachment=False)
 
 # ================= INICIALIZAÇÃO DO BANCO E MIGRAÇÃO AUTOMÁTICA =================
+
+def inicializar_ramais():
+    """Popula a lista oficial de ramais da Gama Caminhões no primeiro boot."""
+    try:
+        if CompanyExtension.query.count() == 0:
+            dados_iniciais = [
+                # CAMPINA GRANDE
+                ("Campina Grande", "DIRETORIA", "DIREÇÃO", "ANDRÉ GAMA", "5654", "andre@gamacaminhoes.com.br", "(83) 98844-5096"),
+                ("Campina Grande", "RECURSOS HUMANOS", "RH", "KARINA", "4524", "rh@gamacaminhoes.com.br", "(83) 99679-0145"),
+                ("Campina Grande", "TÉCNICO DE INFORMÁTICA", "TI", "ERICK", "-", "informatica@gamacaminhoes.com.br", "(83) 98877-0263"),
+                ("Campina Grande", "TÉCNICO DE INFORMÁTICA", "ESTAGIÁRIO DE TI", "JONATHAN", "-", "aux.informatica@gamacaminhoes.com.br", "(83) 99944-0467"),
+                ("Campina Grande", "CRÉDITO E COBRANÇA", "CRÉDITO E COBRANÇA", "GERLANDIA", "4525", "creditoecobranca@gamacaminhoes.com.br", "(83) 99609-5222"),
+                ("Campina Grande", "CONTABILIDADE", "GESTORA", "DAYSE", "5658", "contabilidade@gamacaminhoes.com.br", "(83) 99135-0151"),
+                ("Campina Grande", "CONTABILIDADE", "RH", "ANA", "5651", "analistarh@gamaautos.com.br", "(83) 99135-0151"),
+                ("Campina Grande", "CONTABILIDADE", "ASSISTENTE CONTÁBIL", "PRISCILA", "5651", "contabilidade04@gamacaminhoes.com.br", "(83) 99135-0151"),
+                ("Campina Grande", "CONTABILIDADE", "ASSISTENTE CONTÁBIL", "ALANNA", "5651", "contabilidade02@gamacaminhoes.com.br", "(83) 99135-0151"),
+                ("Campina Grande", "CONTABILIDADE", "ASSISTENTE CONTÁBIL", "TAMIRES", "5651", "contabilidade01@gamacaminhoes.com.br", "(83) 99135-0151"),
+                ("Campina Grande", "CONTABILIDADE", "ASSIST. DE QUALIDADE", "ANDRIELLI", "5651", "qualidade@gamacaminhoes.com.br", "(83) 99837-0014"),
+                ("Campina Grande", "CONTABILIDADE", "ASSISTENTE CONTÁBIL", "MÁRCIA C.", "5651", "contabilidade03@gamacaminhoes.com.br", "(83) 99135-0151"),
+                ("Campina Grande", "CRM / AGENDAMENTO", "CRM", "SAMYRA", "-", "agendamento@grupogama.com.br", "(79) 99814-3486"),
+                ("Campina Grande", "CRM / AGENDAMENTO", "AGENDAMENTO CRM", "FABRICIA", "4521", "agendamentocg@gamacaminhoes.com.br", "(83) 99626-9219"),
+                ("Campina Grande", "CRM / AGENDAMENTO", "TELE PEÇAS", "FELIPE BARBOSA", "4517", "televendas@gamacaminhoes.com.br", "(83) 99937-0026"),
+                ("Campina Grande", "FINANCEIRO", "CAIXA", "FABIANA", "4500", "financeiro@gamacaminhoes.com.br", "(83) 99156-1706"),
+                ("Campina Grande", "MOTORISTA", "MOTORISTA", "FABIO", "-", "-", "(83) 99143-9364"),
+                ("Campina Grande", "VEICULOS NOVOS", "GERENTE DE VENDAS", "HUMBERTO SOBRAL", "4516", "gvcg@gamacaminhoes.com.br", "(83) 98877-0259"),
+                ("Campina Grande", "VEICULOS NOVOS", "RECEPÇÃO VENDAS", "CAROLINA", "4513", "assistentevendas@gamacaminhoes.com.br", "(83) 99837-0011"),
+                ("Campina Grande", "VEICULOS NOVOS", "ASSISTENTE DE VENDAS", "JOSÉLIA", "4515", "vendas@gamacaminhoes.com.br", "(83) 98844-6965"),
+                ("Campina Grande", "VEICULOS NOVOS", "VENDEDOR", "HUGO", "227", "hugo@gamacaminhoes.com.br", "(83) 99151-9301"),
+                ("Campina Grande", "VEICULOS NOVOS", "VENDEDOR", "GENALDO", "-", "genaldo@gamacaminhoes.com.br", "(83) 99609-5253"),
+                ("Campina Grande", "VEICULOS NOVOS", "VENDEDOR", "WILLIAMS", "-", "williams@gamacaminhoes.com.br", "(83) 98844-5098"),
+                ("Campina Grande", "VEICULOS NOVOS", "ENTREGADOR TÉCNICO", "DIMITRI", "229", "vendas2cg@gamacaminhoes.com.br", "(83) 99914-0036"),
+                ("Campina Grande", "VEICULOS NOVOS", "PROF DRIVE", "PROF DRIVE", "-", "profdrive@gamacaminhoes.com.br", "(83) 99699-0019"),
+                ("Campina Grande", "VEICULOS NOVOS", "VOLKSCARE CG – APM", "MAURÍCIO", "-", "volkscare.cg@gamacaminhoes.com.br", "(83) 98844-6972"),
+                ("Campina Grande", "ASSISTÊNCIA TÉCNICA", "GERENTE DE PÓS VENDA", "-", "4511", "at2@gamacaminhoes.com.br", "(83) 98844-6974"),
+                ("Campina Grande", "ASSISTÊNCIA TÉCNICA", "ASSISTENTE RECEPÇÃO", "MARIANNA", "4510", "atcg@gamacaminhoes.com.br", "(83) 98844-6967"),
+                ("Campina Grande", "ASSISTÊNCIA TÉCNICA", "ASSISTENTE RECEPÇÃO", "ANGÉLICA", "4510", "atcg@gamacaminhoes.com.br", "(83) 98844-6967"),
+                ("Campina Grande", "ASSISTÊNCIA TÉCNICA", "ASSISTENTE ADM", "IVILY", "4520", "atcg2@gamacaminhoes.com.br", "(83) 99679-0134"),
+                ("Campina Grande", "ASSISTÊNCIA TÉCNICA", "CHEFE DE OFICINA", "MARCELO", "-", "cocg@gamacaminhoes.com.br", "(83) 99699-0010"),
+                ("Campina Grande", "ASSISTÊNCIA TÉCNICA", "CONSULTOR TÉCNICO", "NYELSON", "4503", "at@gamacaminhoes.com.br", "(83) 99807-0135"),
+                ("Campina Grande", "ASSISTÊNCIA TÉCNICA", "CHAMEVOLKS", "MECANICOS", "-", "-", "(83) 99126-2294"),
+                ("Campina Grande", "ASSISTÊNCIA TÉCNICA", "GARANTIA", "LINDAYANE", "-", "garantia@gamacaminhoes.com.br", "(83) 99679-0090"),
+                ("Campina Grande", "ACESSORIOS / PECAS", "GERENTE DE PEÇAS", "CARLOS ANDRÉ", "4509", "pecas@gamacaminhoes.com.br", "(83) 98877-0262"),
+                ("Campina Grande", "ACESSORIOS / PECAS", "VENDEDOR PEÇAS", "MARCOS", "4505", "pecas02.cg@gamacaminhoes.com.br", "(83) 98844-6970"),
+                ("Campina Grande", "ACESSORIOS / PECAS", "VENDEDOR PEÇAS", "RAFAEL", "4507", "pecas01.cg@gamacaminhoes.com.br", "(83) 99157-9736"),
+                ("Campina Grande", "ACESSORIOS / PECAS", "VENDEDOR PNEUS", "MICHELLE", "4506", "pneus1@gamacaminhoes.com.br", "(83) 99609-5432"),
+                ("Campina Grande", "ACESSORIOS / PECAS", "SUPERVISOR ESTOQUE", "CLAUDIO", "4514", "supervisao01.cg@gamacaminhoes.com.br", "(83) 98844-6968"),
+                ("Campina Grande", "ACESSORIOS / PECAS", "ASSIST. ADM", "LAIS", "4514", "estoque.cg@gamacaminhoes.com.br", "(83) 99837-0012"),
+                ("Campina Grande", "ACESSORIOS / PECAS", "FERRAMENTARIA", "ILKINSON", "4523", "estoque2@gamacaminhoes.com.br", "(83) 99807-0410"),
+                ("Campina Grande", "ACESSORIOS / PECAS", "ESTOQUISTA", "DIEGO", "4514", "estoque2@gamacaminhoes.com.br", "(83) 99679-0147"),
+                ("Campina Grande", "ACESSORIOS / PECAS", "ESTOQUISTA", "IVANILDO", "4514", "estoque2@gamacaminhoes.com.br", "(83) 99679-0147"),
+
+                # JOÃO PESSOA
+                ("João Pessoa", "FINANCEIRO", "CAIXA", "MAIZA", "5653", "cpagar@gamacaminhoes.com.br", "(83) 98877-0264"),
+                ("João Pessoa", "MOTORISTA", "MOTORISTA", "MOISÉS", "-", "-", "(83) 98802-5674"),
+                ("João Pessoa", "VEICULOS NOVOS", "SUPERVISOR", "-", "-", "svjp@gamacaminhoes.com.br", "(83) 99837-0013"),
+                ("João Pessoa", "VEICULOS NOVOS", "VOLKSCARE JP – APM", "RAFAEL", "-", "volkscare.jp@gamacaminhoes.com.br", "(83) 98849-1567"),
+                ("João Pessoa", "VEICULOS NOVOS", "VENDEDOR", "PAULO HENRIQUE", "5652", "paulo@gamacaminhoes.com.br", "(83) 99609-5200"),
+                ("João Pessoa", "VEICULOS NOVOS", "ASSISTENTE VENDAS", "SANDRA", "5666", "vendas3jp@gamacaminhoes.com.br", "(83) 98844-6973"),
+                ("João Pessoa", "VEICULOS NOVOS", "ASSISTENTE VENDAS", "LUCAS", "5672", "vendas2jp@gamacaminhoes.com.br", "(83) 99837-0001"),
+                ("João Pessoa", "VEICULOS NOVOS", "ASSISTENTE VENDAS", "ABRAHÃO", "5672", "vendas2jp@gamacaminhoes.com.br", "(83) 99837-0001"),
+                ("João Pessoa", "VEICULOS NOVOS", "VENDEDOR", "CLEDSON", "5652", "cledson@gamacaminhoes.com.br", "(83) 98844-5097"),
+                ("João Pessoa", "VEICULOS NOVOS", "VENDEDOR", "PAULO GABRIEL", "5652", "paulo.gabriel@gamacaminhoes.com.br", "(83) 98758-7680"),
+                ("João Pessoa", "ASSISTÊNCIA TÉCNICA", "GERENTE", "HUMBERTO", "5661", "at.jp@gamacaminhoes.com.br", "(83) 98844-6975"),
+                ("João Pessoa", "ASSISTÊNCIA TÉCNICA", "ASSISTENTE ADM", "ALESSANDRA", "5667", "at.jp2@gamacaminhoes.com.br", "(83) 98877-0260"),
+                ("João Pessoa", "ASSISTÊNCIA TÉCNICA", "CHAMEVOLKS", "MECANICOS", "-", "-", "(83) 98802-5673"),
+                ("João Pessoa", "ASSISTÊNCIA TÉCNICA", "GARANTIA", "JUAN", "5657", "auxgarantia@gamacaminhoes.com.br", "(83) 99819-1555"),
+                ("João Pessoa", "ASSISTÊNCIA TÉCNICA", "CONSULTOR(A) TÉCNICO", "JULIENDY", "5659", "at1.jp@gamacaminhoes.com.br", "(83) 99609-5400"),
+                ("João Pessoa", "ASSISTÊNCIA TÉCNICA", "CONSULTORA TÉCNICA", "TATIANE", "5660", "at2.jp@gamacaminhoes.com.br", "(83) 99175-8900"),
+                ("João Pessoa", "ASSISTÊNCIA TÉCNICA", "OFICINA", "MECANICOS", "5673", "-", "-"),
+                ("João Pessoa", "ACESSORIOS / PECAS", "VENDOR DE PEÇAS", "BRUNO", "5665", "pecas.jp@gamacaminhoes.com.br", "(83) 98844-6966"),
+                ("João Pessoa", "ACESSORIOS / PECAS", "VENDOR DE PEÇAS", "ESTEFANIA", "5664", "pecas01.jp@gamacaminhoes.com.br", "(83) 99807-0290"),
+                ("João Pessoa", "ACESSORIOS / PECAS", "ASSISTENTE ADM", "JULIANA", "-", "pecas03.jp@gamacaminhoes.com.br", "(83) 99807-0390"),
+                ("João Pessoa", "ACESSORIOS / PECAS", "FERRAMENTARIA", "RONALDO", "5656", "estoque.jp@gamacaminhoes.com.br", "(83) 99807-0119"),
+                ("João Pessoa", "ACESSORIOS / PECAS", "ESTOQUISTA", "PEDRO MANUEL", "5655", "estoque2.jp@gamacaminhoes.com.br", "(83) 99679-0146"),
+                ("João Pessoa", "ACESSORIOS / PECAS", "ESTOQUISTA", "YAGO", "5655", "estoque2.jp@gamacaminhoes.com.br", "(83) 99679-0146")
+            ]
+            for u, s, c, n, ext, em, cel in dados_iniciais:
+                ext_obj = CompanyExtension(
+                    unit=u,
+                    sector=s,
+                    role_name=c,
+                    name=n,
+                    extension=ext,
+                    email=em,
+                    phone=cel
+                )
+                db.session.add(ext_obj)
+            db.session.commit()
+            print("[INFO] Lista inicial de ramais carregada com sucesso!")
+    except Exception as e:
+        db.session.rollback()
+        print(f"[AVISO] Falha ao inicializar ramais: {e}")
+
 def inicializar_banco():
     from sqlalchemy import text, inspect
     with app.app_context():

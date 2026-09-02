@@ -53,38 +53,21 @@
                     <button onclick="toggleGlobalNotificacoes()" style="background: none; border: none; font-size: 1.2em; color: #a0aec0; cursor: pointer;">&times;</button>
                 </div>
 
-                <!-- Lista de Notificações e Avisos -->
-                <div id="global-notifs-container" style="max-height: 350px; overflow-y: auto; padding: 12px; background: #fafafa; display: flex; flex-direction: column; gap: 10px;">
-                    <!-- Notificações Diretas de Senha/Sistema -->
+                <!-- Lista de Notificações do Sino -->
+                <div id="global-notifs-container" style="max-height: 380px; overflow-y: auto; padding: 12px; background: #fafafa; display: flex; flex-direction: column; gap: 10px;">
                     {% for notif in global_user_notifs %}
-                        <div style="background: white; border-left: 4px solid {% if notif.notification_type == 'shared_password_updated' %}#3182ce{% else %}#38a169{% endif %}; padding: 10px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                            <h5 style="margin: 0 0 4px 0; color: #2d3748; font-size: 0.9em; font-family: inherit; display: flex; justify-content: space-between;">
-                                <span>{% if notif.notification_type == 'shared_password_updated' %}🔄{% else %}🔑{% endif %} {{ notif.title }}</span>
-                                {% if not notif.is_read %}<span class="global-nova-flag" style="color: #e53e3e; font-size: 0.75em; font-weight: bold;">(NOVO)</span>{% endif %}
-                            </h5>
-                            <p style="margin: 0; font-size: 0.82em; color: #4a5568; white-space: pre-wrap; font-family: inherit;">{{ notif.message }}</p>
-                            <div style="font-size: 0.7em; color: #a0aec0; margin-top: 4px; text-align: right;">{{ notif.created_at.strftime('%d/%m %H:%M') if notif.created_at else '' }}</div>
+                        <div style="background: white; border-left: 4px solid {% if 'urgente' in notif.message %}#ef4444{% elif notif.notification_type == 'shared_password_updated' %}#3b82f6{% else %}#10b981{% endif %}; padding: 10px 12px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+                            <p style="margin: 0; font-size: 0.88em; color: #1e293b; line-height: 1.4; font-family: inherit; font-weight: 500;">
+                                {{ notif.message }}
+                            </p>
+                            <div style="font-size: 0.72em; color: #94a3b8; margin-top: 6px; text-align: right;">
+                                {{ notif.created_at.strftime('%d/%m/%Y às %H:%M') if notif.created_at else '' }}
+                            </div>
                         </div>
                     {% endfor %}
 
-                    <!-- Avisos do RH -->
-                    {% for aviso in global_avisos %}
-                        <div style="background: white; border-left: 4px solid {% if aviso.is_urgent %}#e53e3e{% else %}#ecc94b{% endif %}; padding: 10px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                            <h5 style="margin: 0 0 4px 0; color: #744210; font-size: 0.9em; font-family: inherit;">
-                                {% if aviso.is_urgent %}<span style="background: #e53e3e; color: white; font-size: 0.7em; padding: 1px 5px; border-radius: 3px;">URGENTE</span>{% endif %}
-                                {{ aviso.title }}
-                                {% if aviso.target_unit and aviso.target_unit != 'Todas' %}
-                                    <span style="font-size: 0.72em; padding: 1px 6px; border-radius: 3px; font-weight: bold; margin-left: 4px; {% if aviso.target_unit == 'Campina Grande' %}background: #feebc8; color: #7b341e;{% else %}background: #bee3f8; color: #2c5282;{% endif %}">{{ aviso.target_unit }}</span>
-                                {% endif %}
-                                {% if aviso in global_avisos_nao_lidos %}<span class="global-nova-flag" style="color: #e53e3e; font-size: 0.75em; margin-left: 5px; font-weight: bold;">(NOVO)</span>{% endif %}
-                            </h5>
-                            <p style="margin: 0; font-size: 0.82em; color: #555; white-space: pre-wrap; font-family: inherit;">{{ aviso.content }}</p>
-                            <div style="font-size: 0.7em; color: #a0aec0; margin-top: 4px; text-align: right;">{{ aviso.created_at.strftime('%d/%m %H:%M') }}</div>
-                        </div>
-                    {% endfor %}
-
-                    {% if not global_user_notifs and not global_avisos %}
-                        <p style="color: #718096; font-size: 0.85em; margin: 15px 0; text-align: center; font-style: italic;">Nenhuma notificação no momento.</p>
+                    {% if not global_user_notifs %}
+                        <p style="color: #94a3b8; font-size: 0.85em; margin: 20px 0; text-align: center; font-style: italic;">Nenhuma notificação no momento.</p>
                     {% endif %}
                 </div>
             </div>
