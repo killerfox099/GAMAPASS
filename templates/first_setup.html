@@ -7,6 +7,7 @@
     <p style="text-align: center; margin-bottom: 30px;">Para garantir a segurança corporativa, conclua a configuração do seu perfil.</p>
 
     <form method="POST" action="{{ url_for('first_setup') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <!-- 1. Dados Pessoais e Organização -->
         <h4 style="color: var(--navy-blue); margin-bottom: 10px;">1. Dados Pessoais e Organização</h4>
         <div style="display: flex; gap: 15px; flex-wrap: wrap;">

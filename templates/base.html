@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}GAMAPASS{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     
@@ -213,6 +214,11 @@
             setInterval(sincronizarNotificacoesTempoReal, 8000);
         {% endif %}
 
+        // Helper Global para obter o Token CSRF em chamadas fetch
+        function getCsrfToken() {
+            return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        }
+
         // Global Notificacoes Dropdown Toggle
         function toggleGlobalNotificacoes() {
             const dropdown = document.getElementById('global-mural-dropdown');
@@ -222,14 +228,19 @@
             if (dropdown.style.display === 'none' || dropdown.style.display === '') {
                 dropdown.style.display = 'block';
                 if (badge && badge.style.display !== 'none') {
-                    fetch("{{ url_for('marcar_avisos_lidos') }}", { method: 'POST' })
-                        .then(r => {
-                            if (r.ok) {
-                                badge.style.display = 'none';
-                                lastKnownUnseen = 0;
-                                setTimeout(() => { flags.forEach(f => f.style.display = 'none'); }, 3000);
-                            }
-                        });
+                    fetch("{{ url_for('marcar_avisos_lidos') }}", {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCsrfToken()
+                        }
+                    })
+                    .then(r => {
+                        if (r.ok) {
+                            badge.style.display = 'none';
+                            lastKnownUnseen = 0;
+                            setTimeout(() => { flags.forEach(f => f.style.display = 'none'); }, 3000);
+                        }
+                    });
                 }
             } else {
                 dropdown.style.display = 'none';
@@ -271,7 +282,10 @@
                         if (ipDetectado.startsWith('10.') || ipDetectado.startsWith('192.168.') || ipDetectado.startsWith('172.')) {
                             fetch("{{ url_for('api_atualizar_ip_local') }}", {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': getCsrfToken()
+                                },
                                 body: JSON.stringify({ local_ip: ipDetectado })
                             }).catch(() => {});
                             pc.close();
@@ -281,9 +295,93 @@
             } catch (e) {}
         }
 
+        // ================= SEGURANÇA: AUTO-LOGOUT POR INATIVIDADE (15 MINUTOS) =================
         {% if current_user.is_authenticated %}
+            let tempoInatividadeMs = 0;
+            const AVISO_INATIVIDADE_MS = 13 * 60 * 1000; // 13 minutos
+            const LIMITE_LOGOUT_MS = 15 * 60 * 1000;   // 15 minutos
+            let timerContagemRegressiva = null;
+            let segundosRestantes = 120;
+
+            function resetarTimerInatividade() {
+                const modal = document.getElementById('modalAvisoInatividade');
+                // Se o modal de aviso já estiver aberto, não reseta apenas com movimento do mouse;
+                // exige clique explícito em "Continuar Conectado"
+                if (modal && modal.style.display === 'flex') return;
+                tempoInatividadeMs = 0;
+            }
+
+            ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(evt => {
+                window.addEventListener(evt, resetarTimerInatividade, { passive: true });
+            });
+
+            // Checagem periódica a cada 10 segundos
+            setInterval(() => {
+                tempoInatividadeMs += 10000;
+                const modal = document.getElementById('modalAvisoInatividade');
+                if (tempoInatividadeMs >= AVISO_INATIVIDADE_MS && (!modal || modal.style.display !== 'flex')) {
+                    exibirAvisoInatividade();
+                }
+            }, 10000);
+
+            function exibirAvisoInatividade() {
+                const modal = document.getElementById('modalAvisoInatividade');
+                if (!modal) return;
+                modal.style.display = 'flex';
+                segundosRestantes = 120;
+                atualizarTextoContagem();
+
+                if (timerContagemRegressiva) clearInterval(timerContagemRegressiva);
+                timerContagemRegressiva = setInterval(() => {
+                    segundosRestantes--;
+                    atualizarTextoContagem();
+                    if (segundosRestantes <= 0) {
+                        clearInterval(timerContagemRegressiva);
+                        window.location.href = "{{ url_for('logout') }}?motivo=inatividade";
+                    }
+                }, 1000);
+            }
+
+            function atualizarTextoContagem() {
+                const span = document.getElementById('tempoRestanteInatividade');
+                if (!span) return;
+                const m = Math.floor(segundosRestantes / 60);
+                const s = segundosRestantes % 60;
+                span.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+            }
+
+            function prolongarSessaoAtiva() {
+                const modal = document.getElementById('modalAvisoInatividade');
+                if (modal) modal.style.display = 'none';
+                if (timerContagemRegressiva) clearInterval(timerContagemRegressiva);
+                tempoInatividadeMs = 0;
+
+                // Faz um ping silencioso para renovar a sessão no backend
+                fetch("{{ url_for('api_ping_sessao') }}", {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCsrfToken() }
+                }).catch(() => {});
+            }
+
             document.addEventListener('DOMContentLoaded', detectarIpLocalCorporativo);
         {% endif %}
     </script>
+
+    <!-- MODAL CORPORATIVO DE AVISO DE INATIVIDADE -->
+    {% if current_user.is_authenticated %}
+    <div id="modalAvisoInatividade" style="display: none; position: fixed; inset: 0; background: rgba(11, 19, 41, 0.75); z-index: 99999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+        <div style="background: white; border-radius: 12px; padding: 28px; max-width: 440px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.3); text-align: center; border-top: 5px solid #d97706;">
+            <div style="font-size: 2.8em; margin-bottom: 10px;">⏳</div>
+            <h3 style="margin: 0 0 10px 0; color: #0b1329; font-size: 1.25em;">Sua sessão está prestes a expirar</h3>
+            <p style="margin: 0 0 18px 0; font-size: 0.92em; color: #475569; line-height: 1.5;">
+                Por motivos de segurança corporativa, sua sessão será encerrada automaticamente em <strong><span id="tempoRestanteInatividade" style="color: #b45309; font-weight: bold;">2:00</span></strong> para proteger suas senhas e acessos confidenciais.
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <a href="{{ url_for('logout') }}?motivo=inatividade" style="padding: 10px 18px; background: #e2e8f0; color: #334155; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.9em;">Sair Agora</a>
+                <button type="button" onclick="prolongarSessaoAtiva()" style="padding: 10px 22px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 0.9em; cursor: pointer; box-shadow: 0 2px 8px rgba(37,99,235,0.35);">Continuar Conectado</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </body>
 </html>

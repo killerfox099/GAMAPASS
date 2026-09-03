@@ -10,6 +10,7 @@
     <h2 class="vw-font" style="font-size: 1.8em; line-height: 1.2;">Seja bem-vindo(a) ao<br><span style="font-weight: 700;">GAMAPASS</span></h2>
     
     <form method="POST" action="{{ url_for('login') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
             <label>Usuário</label>
             <input type="text" name="username" style="background-color: rgba(255, 255, 255, 0.85) !important;" placeholder="Digite seu usuário" required>

@@ -14,8 +14,12 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from cryptography.fernet import Fernet
+from flask_wtf.csrf import CSRFProtect
 
 app = Flask(__name__)
+
+# ================= SEGURANÇA: PROTEÇÃO CSRF & COOKIES =================
+csrf = CSRFProtect(app)
 
 # Filtro customizado Jinja2 para regex no template
 @app.template_filter('regex_search')
@@ -25,6 +29,36 @@ def regex_search_filter(value, pattern):
 
 # ================= CONFIGURAÇÕES DINÂMICAS =================
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chave_de_sessao_fallback_local')
+
+# Blindagem de Cookies de Sessão (OWASP)
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+# Secure cookie ativado se não estiver explicitamente em desenvolvimento local puro
+app.config['SESSION_COOKIE_SECURE'] = (os.environ.get('FLASK_ENV') != 'development') and not ('127.0.0.1' in os.environ.get('DATABASE_URL', ''))
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=60)
+
+# ================= HEADERS DE SEGURANÇA (OWASP HTTP DEFENSE) =================
+@app.after_request
+def aplicar_cabecalhos_seguranca(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+    
+    if request.is_secure or request.headers.get('X-Forwarded-Proto', '') == 'https':
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+        
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self' https://cdn.jsdelivr.net; "
+        "frame-ancestors 'none';"
+    )
+    return response
 
 # Lê a URL do PostgreSQL da nuvem ou roda SQLite localmente se não configurado
 db_url = os.environ.get('DATABASE_URL', 'sqlite:///banco_local.db')
@@ -503,6 +537,7 @@ def enviar_email_convite(destinatario, username, senha_provisoria, link_acesso):
 
 # ================= ROTAS DE AUTENTICAÇÃO =================
 @app.route('/', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
@@ -1450,7 +1485,13 @@ def delete_user(user_id):
 @app.route('/logout')
 @login_required
 def logout():
-    registrar_auditoria('LOGOUT', f'Usuário {current_user.username} encerrou a sessão.')
+    motivo = request.args.get('motivo')
+    if motivo == 'inatividade':
+        registrar_auditoria('LOGOUT', f'Sessão do usuário {current_user.username} encerrada automaticamente por inatividade (15 minutos).')
+        flash('Sua sessão foi encerrada automaticamente após 15 minutos de inatividade para proteger seus dados confidenciais.', 'warning')
+    else:
+        registrar_auditoria('LOGOUT', f'Usuário {current_user.username} encerrou a sessão.')
+        flash('Você saiu do sistema com segurança.', 'info')
     logout_user()
     return redirect(url_for('login'))
 
@@ -1983,6 +2024,12 @@ def baixar_arquivo_aviso(file_id):
     # Registrar leitura do aviso ao qual o arquivo pertence
     registrar_leitura(arq.announcement_id)
     return send_file(io.BytesIO(arq.file_data), download_name=arq.filename, as_attachment=False)
+
+@app.route('/api/ping_sessao', methods=['POST'])
+@login_required
+def api_ping_sessao():
+    """Mantém a sessão ativa quando o usuário confirma que continua ativo."""
+    return {'status': 'ok', 'active': True}
 
 # ================= INICIALIZAÇÃO DO BANCO E MIGRAÇÃO AUTOMÁTICA =================
 

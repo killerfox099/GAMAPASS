@@ -6,3 +6,4 @@ cryptography
 gunicorn
 psycopg2-binary
 reportlab
+Flask-WTF

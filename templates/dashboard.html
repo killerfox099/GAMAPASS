@@ -157,6 +157,7 @@
                 [&gt;] Exportar
             </a>
             <form id="formImportacao" action="{{ url_for('importar_csv') }}" method="POST" enctype="multipart/form-data" style="display:none;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="file" id="arquivo_csv" name="arquivo_csv" accept=".csv" onchange="document.getElementById('formImportacao').submit()">
             </form>
         </div>
@@ -165,6 +166,7 @@
         <div id="box-novo-servico" style="display: none; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; margin-bottom: 22px;">
             <h4 style="margin: 0 0 12px 0; color: var(--navy-blue); font-size: 1.05em;">Cadastrar Nova Credencial</h4>
             <form method="POST" action="{{ url_for('dashboard') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
                     <input type="text" name="service" placeholder="Nome do Serviço (ex: Syonet CRM, Portal VW)" required style="flex: 1 1 200px; padding: 9px; border: 1px solid #cbd5e1; border-radius: 4px;">
                     <input type="text" name="service_url" placeholder="Link / URL (Opcional)" style="flex: 1 1 200px; padding: 9px; border: 1px solid #cbd5e1; border-radius: 4px;">
@@ -267,6 +269,7 @@
                                     <span style="background: white; border: 1px solid #bae6fd; padding: 1px 6px; border-radius: 3px; display: inline-flex; align-items: center; gap: 4px;">
                                         {{ share.recipient_name }}
                                         <form method="POST" action="{{ url_for('revogar_compartilhamento', share_id=share.id) }}" style="margin:0; display:inline;" onsubmit="return confirm('Deseja revogar o acesso deste usuário?');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                             <button type="submit" style="background:none; border:none; color:#ef4444; font-weight:bold; cursor:pointer; padding:0 2px;" title="Revogar acesso">&times;</button>
                                         </form>
                                     </span>
@@ -289,6 +292,7 @@
                             <button type="button" class="btn-link-cinza" onclick="toggleEditPass('{{ entry.id }}')">Editar</button>
                             <span style="color: #cbd5e1;">|</span>
                             <form method="POST" action="{{ url_for('delete_password', pass_id=entry.id) }}" onsubmit="return confirm('Apagar esta credencial permanentemente?');" style="margin: 0; display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn-link-cinza" style="color: #dc2626;">Apagar</button>
                             </form>
                             <span style="color: #cbd5e1;">|</span>
@@ -306,6 +310,7 @@
                     <!-- CAIXA DE COMPARTILHAMENTO -->
                     <div id="share-box-{{ entry.id }}" style="display: none; background-color: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 12px; margin-top: 6px;">
                         <form method="POST" action="{{ url_for('compartilhar_senha', pass_id=entry.id) }}" style="margin: 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <div style="flex: 1 1 180px;">
                                 <label style="font-size: 0.82em; font-weight: bold; color: #166534; display: block; margin-bottom: 3px;">Digite o usuário do colega:</label>
                                 <input type="text" name="recipient_username" placeholder="Ex: claudio.pecas" required style="width: 100%; padding: 7px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.88em;">
@@ -318,6 +323,7 @@
                     <!-- MODO EDIÇÃO -->
                     <div id="edit-pass-{{ entry.id }}" style="display: none; background-color: #f8fafc; padding: 14px; border-radius: 6px; border: 1px solid var(--navy-blue);">
                         <form method="POST" action="{{ url_for('editar_senha', pass_id=entry.id) }}" style="display: flex; flex-direction: column; gap: 8px; margin: 0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                                 <input type="text" name="service" value="{{ entry.service_name }}" required placeholder="Serviço" style="flex: 1; padding: 7px; border: 1px solid #cbd5e1; border-radius: 4px;">
                                 <input type="text" name="service_url" value="{{ entry.service_url or '' }}" placeholder="URL/Link" style="flex: 1; padding: 7px; border: 1px solid #cbd5e1; border-radius: 4px;">
@@ -593,6 +599,7 @@
         <div id="box-novo-ramal" style="display: none; background: #f8fafc; border: 1.5px solid #2563eb; border-radius: 8px; padding: 18px; margin-bottom: 20px;">
             <h4 style="margin: 0 0 12px 0; color: #1e3a8a; font-size: 1.05em;">➕ Novo Contato na Lista de Ramais</h4>
             <form method="POST" action="{{ url_for('ramais_adicionar') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
                     <div style="flex: 1 1 150px;">
                         <label style="font-size: 0.82em; font-weight: bold; color: #475569;">Unidade *</label>
@@ -737,6 +744,7 @@
                                 ✏️
                             </button>
                             <form method="POST" action="{{ url_for('ramais_deletar', ramal_id=r.id) }}" onsubmit="return confirm('Excluir este contato da lista de ramais?');" style="display:inline; margin:0;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" style="background:none; border:none; color:#dc2626; cursor:pointer; font-size:0.95em; padding:2px 5px;" title="Apagar contato">
                                     🗑️
                                 </button>
@@ -758,6 +766,7 @@
     <div style="background: white; border-radius: 8px; padding: 22px; max-width: 550px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
         <h3 style="margin: 0 0 15px 0; color: #1e3a8a;">✏️ Editar Informações do Ramal</h3>
         <form id="formEditarRamal" method="POST" action="">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
                 <div style="flex: 1 1 150px;">
                     <label style="font-size: 0.82em; font-weight: bold; color: #475569;">Unidade</label>
@@ -887,19 +896,60 @@
         }
     }
 
+    // ================= SEGURANÇA: COPIAR SENHA & AUTO-CLEAR CLIPBOARD (45s) =================
+    let timerLimpezaClipboard = null;
+    let toastClipboard = null;
+
+    function exibirToastClipboard(msg) {
+        if (!toastClipboard) {
+            toastClipboard = document.createElement('div');
+            toastClipboard.id = 'toast-clipboard-seguranca';
+            toastClipboard.style.cssText = 'position: fixed; bottom: 25px; right: 25px; background: #0f172a; color: white; padding: 12px 18px; border-radius: 8px; font-size: 0.88em; box-shadow: 0 8px 24px rgba(0,0,0,0.3); z-index: 100000; display: flex; align-items: center; gap: 10px; border-left: 4px solid #10b981; transition: opacity 0.3s;';
+            document.body.appendChild(toastClipboard);
+        }
+        toastClipboard.innerHTML = `<span>🔒</span> <span>${msg}</span>`;
+        toastClipboard.style.opacity = '1';
+        toastClipboard.style.display = 'flex';
+        setTimeout(() => {
+            if (toastClipboard) {
+                toastClipboard.style.opacity = '0';
+                setTimeout(() => { if (toastClipboard) toastClipboard.style.display = 'none'; }, 300);
+            }
+        }, 4500);
+    }
+
     function copiarSenhaDireta(senha, btn) {
-        navigator.clipboard.writeText(senha).then(() => {
+        const executarCopia = () => {
             const orig = btn.textContent;
             btn.textContent = 'Copiado!';
             btn.style.backgroundColor = '#059669';
             setTimeout(() => { btn.textContent = orig; btn.style.backgroundColor = ''; }, 2000);
-        }).catch(() => {
+
+            exibirToastClipboard("Senha copiada! Por segurança, a área de transferência será limpa automaticamente em 45 segundos.");
+
+            if (timerLimpezaClipboard) clearTimeout(timerLimpezaClipboard);
+            timerLimpezaClipboard = setTimeout(() => {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText('').then(() => {
+                        exibirToastClipboard("Área de transferência limpa automaticamente por segurança.");
+                    }).catch(() => {});
+                }
+            }, 45000);
+        };
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(senha).then(executarCopia).catch(() => {
+                const ta = document.createElement('textarea');
+                ta.value = senha; document.body.appendChild(ta); ta.select();
+                document.execCommand('copy'); document.body.removeChild(ta);
+                executarCopia();
+            });
+        } else {
             const ta = document.createElement('textarea');
             ta.value = senha; document.body.appendChild(ta); ta.select();
             document.execCommand('copy'); document.body.removeChild(ta);
-            btn.textContent = 'Copiado!';
-            setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
-        });
+            executarCopia();
+        }
     }
 
     function toggleShareBox(passId) {

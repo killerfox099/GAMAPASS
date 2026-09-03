@@ -73,6 +73,7 @@
         </p>
         
         <form method="POST" action="{{ url_for('admin_panel') }}" id="single-user-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="action" value="create_single">
             
             <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;">
@@ -165,6 +166,7 @@
                     <!-- Botão Desbloquear Conta -->
                     {% if user.locked_until and user.locked_until > agora %}
                         <form method="POST" action="{{ url_for('admin_desbloquear_usuario', user_id=user.id) }}" style="margin: 0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" style="width: auto; padding: 8px 14px; font-size: 0.85em; background-color: #c53030;" title="Desbloquear conta imediatamente">
                                 🔓 Desbloquear
                             </button>
@@ -174,6 +176,7 @@
                     <!-- Botão Reenviar Convite por E-mail -->
                     {% if user.email %}
                         <form method="POST" action="{{ url_for('reenviar_convite', user_id=user.id) }}" onsubmit="return confirm('Deseja gerar uma nova senha provisória e reenviar o convite por e-mail para {{ user.email }}?');" style="margin: 0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" style="width: auto; padding: 8px 14px; font-size: 0.85em; background-color: #2b7a4b;" title="Reenviar link de acesso com nova senha">
                                 ✉️ Reenviar Convite
                             </button>
@@ -184,6 +187,7 @@
                     
                     <!-- Formulário para Apagar Usuário -->
                     <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" onsubmit="return confirm('ATENÇÃO: Apagar este usuário também apagará todas as senhas guardadas por ele. Deseja prosseguir?');" style="margin: 0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn-danger" style="width: auto; padding: 8px 14px; font-size: 0.85em;" {% if user.id == current_user.id %}disabled title="Você não pode apagar a si mesmo"{% endif %}>🗑️ Apagar</button>
                     </form>
                 </div>
@@ -199,6 +203,7 @@
             <!-- MODO EDIÇÃO -->
             <div id="edit-mode-{{ user.id }}" style="display: none; background-color: #edf2f7; padding: 18px; border: 1px solid var(--navy-blue); border-radius: 6px; margin-top: 5px;">
                 <form method="POST" action="{{ url_for('editar_usuario', user_id=user.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div style="display: flex; flex-wrap: wrap; gap: 12px;">
                         <div class="form-group" style="flex: 1 1 45%; margin-bottom: 5px;"><label>Login</label><input type="text" name="username" value="{{ user.username }}" required></div>
                         <div class="form-group" style="flex: 1 1 45%; margin-bottom: 5px;"><label>Nome Completo</label><input type="text" name="display_name" value="{{ user.display_name or '' }}"></div>
