@@ -14,7 +14,8 @@
             <div style="font-size: 0.85em; color: #64748b; margin-top: 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                 <span>🏢 {{ current_user.unit or 'Unidade' }} / {{ current_user.department or 'Departamento' }}</span>
                 <span>•</span>
-                <span>🖥️ IP: <strong style="color: darkred;">{{ current_user.machine_ip or 'Não registrado' }}</strong></span>
+                <span>🖥️ IP da Máquina: <strong style="color: #1d4ed8;" id="span-meu-ip">{{ current_user.machine_ip or '10.5.0.XX' }}</strong> <span style="font-size: 0.9em; color: #475569;">(DNS: 10.5.254.254)</span></span>
+                <button type="button" onclick="abrirModalMeuIp()" style="background: none; border: none; color: #2563eb; cursor: pointer; font-size: 0.85em; text-decoration: underline; padding: 0 4px; font-weight: 600;" title="Alterar ou confirmar o IP interno da sua máquina">[✏️ Alterar]</button>
             </div>
         </div>
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
@@ -1138,6 +1139,51 @@
 
     document.addEventListener("DOMContentLoaded", () => {
         filtrarTabelaRamais();
+        
+        // Sincroniza IP da máquina com localStorage para os próximos logins
+        const currentIp = "{{ current_user.machine_ip or '' }}";
+        if (currentIp && (currentIp.startsWith('10.5.') || currentIp.startsWith('10.'))) {
+            localStorage.setItem('gamapass_local_ip', currentIp);
+        }
     });
+
+    function abrirModalMeuIp() {
+        document.getElementById('modalMeuIp').style.display = 'flex';
+    }
+
+    function fecharModalMeuIp() {
+        document.getElementById('modalMeuIp').style.display = 'none';
+    }
 </script>
+
+<!-- MODAL PARA DEFINIR/ALTERAR IP INTERNO DA MÁQUINA -->
+<div id="modalMeuIp" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 99999; align-items: center; justify-content: center; padding: 15px;">
+    <div style="background: white; border-radius: 8px; max-width: 440px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; font-family: inherit;">
+        <div style="background: var(--navy-blue); color: white; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
+            <h4 style="margin: 0; font-size: 1.1em; display: flex; align-items: center; gap: 8px;">
+                🖥️ IP Interno da Máquina
+            </h4>
+            <button type="button" onclick="fecharModalMeuIp()" style="background: none; border: none; color: white; font-size: 1.2em; cursor: pointer;">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('api_atualizar_meu_ip') }}" style="padding: 20px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <p style="font-size: 0.9em; color: #475569; margin-top: 0; line-height: 1.4;">
+                Informe o endereço IPv4 fixo da sua máquina na concessionária (conforme configurado na rede corporativa com DNS <strong>10.5.254.254</strong>):
+            </p>
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label style="font-weight: 600; font-size: 0.9em; color: #1e293b; display: block; margin-bottom: 5px;">Endereço IPv4 da Máquina:</label>
+                <input type="text" name="novo_ip" id="input_novo_ip" value="{{ current_user.machine_ip or '10.5.0.' }}" placeholder="Ex: 10.5.0.224" required style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1em; font-family: monospace;">
+            </div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; font-size: 0.82em; color: #64748b; margin-bottom: 18px;">
+                • Gateway Padrão: <strong>10.5.254.254</strong><br>
+                • Servidor DNS: <strong>10.5.254.254</strong><br>
+                • Sub-rede Corporativa: <strong>10.5.0.0/16</strong>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" onclick="fecharModalMeuIp()" style="padding: 8px 16px; background: #64748b; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Cancelar</button>
+                <button type="submit" style="padding: 8px 18px; background: #1d4ed8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.9em;">💾 Salvar IP</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}

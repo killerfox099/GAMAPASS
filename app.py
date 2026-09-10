@@ -217,9 +217,12 @@ class AuditLog(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# ================= DETECÇÃO DE IP =================
+# ================= DETECÇÃO E RESOLUÇÃO DE IP CORPORATIVO =================
+GAMA_CORPORATE_DNS = '10.5.254.254'
+GAMA_PUBLIC_IPS = {'187.115.174.98', '189.112.210.34'}
+
 def get_client_ip():
-    """Captura o endereço IP de conexão do usuário."""
+    """Captura o endereço IP bruto de conexão do usuário."""
     if request.headers.get('X-Forwarded-For'):
         ip = request.headers.get('X-Forwarded-For').split(',')[0].strip()
     elif request.headers.get('X-Real-IP'):
@@ -227,6 +230,38 @@ def get_client_ip():
     else:
         ip = request.remote_addr or '127.0.0.1'
     return ip
+
+def resolver_ip_dispositivo(user=None, client_local_ip=None):
+    """
+    Identifica o IP corporativo real da máquina (10.5.0.XX) e DNS corporativo (10.5.254.254),
+    substituindo o IP externo público de saída (ex: 187.115.174.98).
+    """
+    raw_ip = get_client_ip()
+    local_ip = (client_local_ip or '').strip()
+    
+    # 1. Se o cliente enviou o IP local interno da máquina (10.5.x.x ou 10.x.x.x)
+    if local_ip and (local_ip.startswith('10.5.') or local_ip.startswith('10.')):
+        if user and (not user.machine_ip or user.machine_ip.startswith(('187.', '189.', '127.'))):
+            user.machine_ip = local_ip
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+        return f"{local_ip} (DNS: {GAMA_CORPORATE_DNS})"
+        
+    # 2. Se o usuário já possui IP de máquina corporativo cadastrado (ex: 10.5.0.224)
+    if user and user.machine_ip and not user.machine_ip.startswith(('187.', '189.')):
+        m_ip = user.machine_ip.strip()
+        if raw_ip in GAMA_PUBLIC_IPS or raw_ip.startswith(('187.115.', '189.112.', '10.', '192.168.', '172.')):
+            return f"{m_ip} (DNS: {GAMA_CORPORATE_DNS})"
+        return f"{m_ip} (Externo via {raw_ip})"
+        
+    # 3. Se a conexão vem da infraestrutura/gateway da Gama Caminhões (187.115.174.98)
+    if raw_ip in GAMA_PUBLIC_IPS or raw_ip.startswith(('187.115.', '189.112.')):
+        return f"10.5.0.XX (Rede Gama - DNS: {GAMA_CORPORATE_DNS})"
+        
+    # 4. Caso seja conexão externa pura fora da empresa
+    return raw_ip
 
 @app.before_request
 def update_user_ip_and_cleanup_avisos():
@@ -243,13 +278,24 @@ def update_user_ip_and_cleanup_avisos():
 def api_atualizar_ip_local():
     data = request.get_json(silent=True) or {}
     local_ip = (data.get('local_ip') or '').strip()
-    if local_ip:
-        # Se for um IP de rede interna privada (10.x.x.x, 192.168.x.x, 172.16-31.x.x)
-        # e o usuário ainda não tiver IP ou estiver com um IP público externo antigo
-        if not current_user.machine_ip or not current_user.machine_ip.startswith(('10.', '192.168.', '172.')) or (local_ip.startswith('10.') and not current_user.machine_ip.startswith('10.')):
-            current_user.machine_ip = local_ip
+    if local_ip and (local_ip.startswith('10.5.') or local_ip.startswith('10.') or local_ip.startswith('192.168.')):
+        current_user.machine_ip = local_ip
+        try:
             db.session.commit()
-    return {'status': 'ok'}
+        except Exception:
+            db.session.rollback()
+    return {'status': 'ok', 'machine_ip': current_user.machine_ip}
+
+@app.route('/api/atualizar_meu_ip', methods=['POST'])
+@login_required
+def api_atualizar_meu_ip():
+    novo_ip = (request.form.get('novo_ip') or '').strip()
+    if novo_ip:
+        current_user.machine_ip = novo_ip
+        registrar_auditoria('IP_ATUALIZADO', f'Usuário {current_user.username} definiu o IP da sua máquina como {novo_ip} (DNS: {GAMA_CORPORATE_DNS}).')
+        db.session.commit()
+        flash(f'IP da máquina atualizado para {novo_ip} (DNS: {GAMA_CORPORATE_DNS}) com sucesso!', 'success')
+    return redirect(url_for('dashboard'))
 
 @app.context_processor
 def inject_avisos():
@@ -295,7 +341,7 @@ def registrar_auditoria(action, details=None):
         from flask_login import current_user as cu
         uid = cu.id if cu.is_authenticated else None
         uname = cu.username if cu.is_authenticated else 'Sistema'
-        ip = get_client_ip()
+        ip = resolver_ip_dispositivo(cu) if (cu and cu.is_authenticated) else resolver_ip_dispositivo()
         log = AuditLog(
             user_id=uid,
             username_at_time=uname,
@@ -556,12 +602,20 @@ def login():
                 return render_template('login.html')
 
         if user and check_password_hash(user.password_hash, password):
-            current_ip = get_client_ip()
+            client_local_ip = request.form.get('client_local_ip')
+            current_ip = resolver_ip_dispositivo(user, client_local_ip)
             current_ua = (request.headers.get('User-Agent') or 'Desconhecido')[:250]
             
             # 2. Alerta de Segurança por E-mail (se login for de IP ou Navegador diferente do habitual)
             if user.email and (user.last_login_ip or user.last_user_agent):
-                ip_mudou = user.last_login_ip and user.last_login_ip != current_ip
+                # Se ambos os logins foram da rede interna corporativa da Gama Caminhões (DNS 10.5.254.254),
+                # consideramos como a mesma rede e evitamos disparos indevidos
+                mesma_rede_gama = (
+                    user.last_login_ip and 
+                    ('DNS: 10.5.254.254' in user.last_login_ip or '10.5.' in user.last_login_ip) and 
+                    ('DNS: 10.5.254.254' in current_ip or '10.5.' in current_ip)
+                )
+                ip_mudou = (user.last_login_ip and user.last_login_ip != current_ip) and not mesma_rede_gama
                 ua_mudou = user.last_user_agent and user.last_user_agent != current_ua
                 if ip_mudou or ua_mudou:
                     assunto = "⚠️ Alerta de Segurança - Novo Acesso Detectado no GAMAPASS"
@@ -2239,6 +2293,22 @@ def inicializar_banco():
                 db.session.add(admin_obj)
                 db.session.commit()
                 print(f"[INFO] Administrador inicial criado com sucesso: login='{admin_user}'")
+
+            # Garante que os usuários Jonathan / TI estejam associados ao IP corporativo 10.5.0.224
+            try:
+                users_ti = User.query.filter(
+                    db.or_(
+                        User.username.ilike('%jonathan%'),
+                        User.email.ilike('%jonathan%'),
+                        User.username.ilike('%adm%')
+                    )
+                ).all()
+                for u in users_ti:
+                    if not u.machine_ip or u.machine_ip.startswith(('187.', '189.', '10.0.0.')):
+                        u.machine_ip = '10.5.0.224'
+                db.session.commit()
+            except Exception as ex_ip:
+                print(f"[INIT IPS EXCEPTION]: {ex_ip}")
         except Exception as e:
             print(f"[AVISO] Falha ao verificar/migrar tabelas: {e}")
 

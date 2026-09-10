@@ -11,6 +11,7 @@
     
     <form method="POST" action="{{ url_for('login') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="client_local_ip" id="client_local_ip" value="">
         <div class="form-group">
             <label>Usuário</label>
             <input type="text" name="username" style="background-color: rgba(255, 255, 255, 0.85) !important;" placeholder="Digite seu usuário" required>
@@ -36,5 +37,27 @@
         input.type = input.type === "password" ? "text" : "password";
         btnElement.textContent = input.type === "password" ? "👁️" : "👁️‍🗨️";
     }
+
+    // Inicializa IP local a partir de cache ou WebRTC
+    document.addEventListener("DOMContentLoaded", () => {
+        const inp = document.getElementById('client_local_ip');
+        const salvo = localStorage.getItem('gamapass_local_ip');
+        if (salvo && inp) inp.value = salvo;
+
+        try {
+            const pc = new (window.RTCPeerConnection || window.webkitRTCPeerConnection)({ iceServers: [] });
+            pc.createDataChannel('');
+            pc.createOffer().then(o => pc.setLocalDescription(o)).catch(() => {});
+            pc.onicecandidate = function(e) {
+                if (!e || !e.candidate) return;
+                const match = e.candidate.candidate.match(/([0-9]{1,3}(\.[0-9]{1,3}){3})/);
+                if (match && (match[1].startsWith('10.5.') || match[1].startsWith('10.'))) {
+                    if (inp) inp.value = match[1];
+                    localStorage.setItem('gamapass_local_ip', match[1]);
+                    pc.close();
+                }
+            };
+        } catch (e) {}
+    });
 </script>
 {% endblock %}
