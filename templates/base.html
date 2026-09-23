@@ -9,7 +9,7 @@
     
     <style>
         #caps-lock-warning { display: none; position: fixed; background-color: #ffaa00; color: #000; padding: 6px 12px; border-radius: 4px; font-size: 0.85em; font-weight: bold; box-shadow: 0 4px 8px rgba(0,0,0,0.2); pointer-events: none; z-index: 9999; }
-        #caps-lock-warning::before { content: '⚠️ Caps Lock Ligado!'; }
+        #caps-lock-warning::before { content: 'Caps Lock Ligado!'; }
     </style>
     <script>
         if (localStorage.getItem('gamapass_theme') === 'dark') {
@@ -49,7 +49,7 @@
             <div id="global-mural-dropdown" style="display: none; position: absolute; left: 0; top: 110%; width: 360px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); z-index: 1001; overflow: hidden; text-align: left;">
                 <div style="background: #fff8e1; border-bottom: 1px solid #f6e05e; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center;">
                     <h4 style="margin: 0; color: #b7791f; display: flex; align-items: center; gap: 8px; font-family: inherit; font-size: 1em;">
-                        <span>🔔</span> Central de Notificações
+                        Central de Notificações
                     </h4>
                     <button onclick="toggleGlobalNotificacoes()" style="background: none; border: none; font-size: 1.2em; color: #a0aec0; cursor: pointer;">&times;</button>
                 </div>
@@ -371,7 +371,7 @@
     {% if current_user.is_authenticated %}
     <div id="modalAvisoInatividade" style="display: none; position: fixed; inset: 0; background: rgba(11, 19, 41, 0.75); z-index: 99999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
         <div style="background: white; border-radius: 12px; padding: 28px; max-width: 440px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.3); text-align: center; border-top: 5px solid #d97706;">
-            <div style="font-size: 2.8em; margin-bottom: 10px;">⏳</div>
+            <div style="font-size: 2.8em; margin-bottom: 10px;"></div>
             <h3 style="margin: 0 0 10px 0; color: #0b1329; font-size: 1.25em;">Sua sessão está prestes a expirar</h3>
             <p style="margin: 0 0 18px 0; font-size: 0.92em; color: #475569; line-height: 1.5;">
                 Por motivos de segurança corporativa, sua sessão será encerrada automaticamente em <strong><span id="tempoRestanteInatividade" style="color: #b45309; font-weight: bold;">2:00</span></strong> para proteger suas senhas e acessos confidenciais.

@@ -10,7 +10,7 @@
             <small style="color: #666;">Gestão de Acessos, Auditoria e Métricas de Segurança</small>
         </div>
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-            <a href="{{ url_for('admin_auditoria') }}" style="background-color: #4a5568; color: white; font-weight: bold; text-decoration: none; padding: 8px 15px; border-radius: 4px; font-size: 0.9em;">📋 Log de Auditoria & Relatórios</a>
+            <a href="{{ url_for('admin_auditoria') }}" style="background-color: #4a5568; color: white; font-weight: bold; text-decoration: none; padding: 8px 15px; border-radius: 4px; font-size: 0.9em;">Log de Auditoria & Relatórios</a>
             <a href="{{ url_for('dashboard') }}" style="color: var(--navy-blue); font-weight: bold; text-decoration: none; border: 1px solid var(--navy-blue); padding: 8px 15px; border-radius: 4px;">Voltar ao Cofre</a>
         </div>
     </div>
@@ -19,7 +19,7 @@
     {% if metricas %}
     <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 30px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
         <h3 class="vw-font" style="margin-top: 0; margin-bottom: 15px; color: var(--navy-blue); font-size: 1.15em;">
-            📊 Indicadores e Métricas de Segurança
+            Indicadores e Métricas de Segurança
         </h3>
         
         <!-- Cards Rápidos -->
@@ -48,13 +48,13 @@
         <!-- Gráficos Chart.js -->
         <div style="display: flex; gap: 20px; flex-wrap: wrap; justify-content: space-around;">
             <div style="flex: 1 1 320px; max-width: 420px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
-                <h5 style="margin: 0 0 10px 0; color: #4a5568; font-size: 0.95em;">🏢 Usuários por Filial</h5>
+                <h5 style="margin: 0 0 10px 0; color: #4a5568; font-size: 0.95em;">Usuários por Filial</h5>
                 <div style="height: 220px; position: relative;">
                     <canvas id="chartFiliais"></canvas>
                 </div>
             </div>
             <div style="flex: 1 1 320px; max-width: 420px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
-                <h5 style="margin: 0 0 10px 0; color: #4a5568; font-size: 0.95em;">🔑 Saúde das Senhas (Força)</h5>
+                <h5 style="margin: 0 0 10px 0; color: #4a5568; font-size: 0.95em;">Saúde das Senhas (Força)</h5>
                 <div style="height: 220px; position: relative;">
                     <canvas id="chartSenhas"></canvas>
                 </div>
@@ -102,7 +102,7 @@
                             <input type="password" id="single_pass" name="password" placeholder="Digite ou gere a senha..." required>
                             <button type="button" class="toggle-icon" onclick="togglePassword('single_pass', this)">👁️</button>
                         </div>
-                        <button type="button" onclick="generateProvisionalPassword('single_pass')" style="width: auto; padding: 12px 16px; font-size: 0.9em; background-color: #2b7a4b; color: white; white-space: nowrap; border-radius: 4px;" title="Gerar Senha Aleatória">🎲 Gerar Senha</button>
+                        <button type="button" onclick="generateProvisionalPassword('single_pass')" style="width: auto; padding: 12px 16px; font-size: 0.9em; background-color: #2b7a4b; color: white; white-space: nowrap; border-radius: 4px;" title="Gerar Senha Aleatória">Gerar Senha</button>
                     </div>
                 </div>
 
@@ -127,10 +127,26 @@
     </div>
 
     <!-- LISTA DE EQUIPE CADASTRADA -->
-    <h3 class="vw-font" style="color: var(--navy-blue); text-align: left; margin-bottom: 15px;">Equipe Cadastrada ({{ users|length }})</h3>
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-top: 10px; margin-bottom: 15px;">
+        <h3 class="vw-font" style="color: var(--navy-blue); text-align: left; margin: 0;">
+            Equipe Cadastrada <span id="contadorUsuariosAdmin" style="font-size: 0.85em; color: #64748b; font-weight: normal;">({{ users|length }})</span>
+        </h3>
+        
+        <form method="POST" action="{{ url_for('admin_reenviar_todos_pendentes') }}" onsubmit="return confirm('Deseja gerar novas senhas provisórias e reenviar o convite por e-mail para TODOS os funcionários que ainda não realizaram o primeiro acesso?');" style="margin: 0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" style="width: auto; padding: 9px 16px; font-size: 0.88em; background-color: #2b7a4b; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                Reenviar Convite a Todos Pendentes
+            </button>
+        </form>
+    </div>
+
+    <!-- BARRA DE PESQUISA DE USUÁRIO -->
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="filtroUsuarioAdmin" onkeyup="filtrarUsuariosAdmin()" placeholder="Pesquisar por nome, login, e-mail, unidade, departamento ou setor..." style="width: 100%; padding: 11px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95em; box-sizing: border-box; background: #ffffff;">
+    </div>
     
     {% for user in users %}
-        <div class="admin-card" style="flex-direction: column; align-items: stretch; gap: 15px; margin-bottom: 20px; background-color: #ffffff; border: 1px solid {% if user.locked_until and user.locked_until > agora %}#feb2b2; background-color: #fffaf0;{% else %}#e2e8f0;{% endif %} border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+        <div class="admin-card card-usuario-admin" style="flex-direction: column; align-items: stretch; gap: 15px; margin-bottom: 20px; background-color: #ffffff; border: 1px solid {% if user.locked_until and user.locked_until > agora %}#feb2b2; background-color: #fffaf0;{% else %}#e2e8f0;{% endif %} border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
                 <div>
                     <strong style="font-size: 1.25em; color: var(--navy-blue);">{{ user.display_name or 'Pendente de Configuração' }}</strong> 
@@ -138,11 +154,11 @@
                     
                     <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
                         <span style="background-color: {% if user.is_admin %}darkred{% else %}var(--navy-blue){% endif %}; color: white; padding: 3px 10px; border-radius: 4px; font-size: 0.8em; font-weight: bold; display: inline-block;">
-                            {% if user.is_admin %}🛡️ Administrador{% else %}👤 Funcionário{% endif %}
+                            {% if user.is_admin %}Administrador{% else %}Funcionário{% endif %}
                         </span>
                         {% if user.email %}
                             <span style="font-size: 0.85em; color: #4a5568; background-color: #edf2f7; padding: 3px 8px; border-radius: 4px;">
-                                📧 {{ user.email }}
+                                {{ user.email }}
                             </span>
                         {% else %}
                             <span style="font-size: 0.85em; color: #a0aec0; font-style: italic;">
@@ -151,12 +167,12 @@
                         {% endif %}
                         {% if user.is_first_login %}
                             <span style="font-size: 0.8em; color: #b7791f; background-color: #fefcbf; padding: 2px 8px; border-radius: 4px; font-weight: 600;">
-                                ⏳ Primeiro Acesso Pendente
+                                Primeiro Acesso Pendente
                             </span>
                         {% endif %}
                         {% if user.locked_until and user.locked_until > agora %}
                             <span style="font-size: 0.8em; color: #c53030; background-color: #fed7d7; padding: 2px 8px; border-radius: 4px; font-weight: bold;">
-                                ⛔ Bloqueado (5 falhas)
+                                Bloqueado (5 falhas)
                             </span>
                         {% endif %}
                     </div>
@@ -168,7 +184,7 @@
                         <form method="POST" action="{{ url_for('admin_desbloquear_usuario', user_id=user.id) }}" style="margin: 0;">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" style="width: auto; padding: 8px 14px; font-size: 0.85em; background-color: #c53030;" title="Desbloquear conta imediatamente">
-                                🔓 Desbloquear
+                                Desbloquear
                             </button>
                         </form>
                     {% endif %}
@@ -178,17 +194,17 @@
                         <form method="POST" action="{{ url_for('reenviar_convite', user_id=user.id) }}" onsubmit="return confirm('Deseja gerar uma nova senha provisória e reenviar o convite por e-mail para {{ user.email }}?');" style="margin: 0;">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" style="width: auto; padding: 8px 14px; font-size: 0.85em; background-color: #2b7a4b;" title="Reenviar link de acesso com nova senha">
-                                ✉️ Reenviar Convite
+                                Reenviar Convite
                             </button>
                         </form>
                     {% endif %}
 
-                    <button type="button" onclick="toggleEditForm('{{ user.id }}')" style="width: auto; padding: 8px 14px; font-size: 0.85em; background-color: #4a5568;">✏️ Editar</button>
+                    <button type="button" onclick="toggleEditForm('{{ user.id }}')" style="width: auto; padding: 8px 14px; font-size: 0.85em; background-color: #4a5568;">Editar</button>
                     
                     <!-- Formulário para Apagar Usuário -->
                     <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" onsubmit="return confirm('ATENÇÃO: Apagar este usuário também apagará todas as senhas guardadas por ele. Deseja prosseguir?');" style="margin: 0;">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn-danger" style="width: auto; padding: 8px 14px; font-size: 0.85em;" {% if user.id == current_user.id %}disabled title="Você não pode apagar a si mesmo"{% endif %}>🗑️ Apagar</button>
+                        <button type="submit" class="btn-danger" style="width: auto; padding: 8px 14px; font-size: 0.85em;" {% if user.id == current_user.id %}disabled title="Você não pode apagar a si mesmo"{% endif %}>Apagar</button>
                     </form>
                 </div>
             </div>
@@ -254,7 +270,7 @@
                         </div>
                     </div>
                     <div style="display: flex; gap: 10px; margin-top: 15px;">
-                        <button type="submit" style="background-color: darkred; flex: 1;">💾 Salvar Alterações</button>
+                        <button type="submit" style="background-color: darkred; flex: 1;">Salvar Alterações</button>
                         <button type="button" onclick="toggleEditForm('{{ user.id }}')" class="btn-secondary" style="flex: 1; background-color: #6c757d;">Cancelar</button>
                     </div>
                 </form>
@@ -264,6 +280,26 @@
 </div>
 
 <script>
+    
+    function filtrarUsuariosAdmin() {
+        const termo = document.getElementById('filtroUsuarioAdmin').value.toLowerCase().trim();
+        const cards = document.querySelectorAll('.card-usuario-admin');
+        let visiveis = 0;
+        cards.forEach(card => {
+            const texto = card.innerText.toLowerCase();
+            if (texto.includes(termo)) {
+                card.style.display = 'flex';
+                visiveis++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+        const contador = document.getElementById('contadorUsuariosAdmin');
+        if (contador) {
+            contador.textContent = termo ? '(' + visiveis + ' encontrado' + (visiveis === 1 ? '' : 's') + ')' : '({{ users|length }})';
+        }
+    }
+
     function toggleEditForm(userId) {
         const viewMode = document.getElementById('view-mode-' + userId);
         const editMode = document.getElementById('edit-mode-' + userId);

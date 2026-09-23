@@ -6,11 +6,11 @@
 <div class="container" style="max-width: 1100px; width: 100%;">
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid darkred; padding-bottom: 10px; margin-bottom: 25px; flex-wrap: wrap; gap: 10px;">
         <div>
-            <h2 class="vw-font" style="color: darkred; margin: 0; text-align: left;">📋 Log de Auditoria & Relatórios</h2>
+            <h2 class="vw-font" style="color: darkred; margin: 0; text-align: left;">Log de Auditoria & Relatórios</h2>
             <small style="color: #666;">Auditoria completa de segurança com filtros por período, unidade e departamento.</small>
         </div>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <a href="{{ url_for('exportar_auditoria', usuario=filtros.usuario, acao=filtros.acao, unidade=filtros.unidade, departamento=filtros.departamento, data_inicio=filtros.data_inicio, data_fim=filtros.data_fim) }}" style="background-color: #2b7a4b; color: white; padding: 8px 16px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.9em; display: inline-flex; align-items: center; gap: 6px;">📥 Exportar Relatório Filtrado (CSV)</a>
+            <a href="{{ url_for('exportar_auditoria', usuario=filtros.usuario, acao=filtros.acao, unidade=filtros.unidade, departamento=filtros.departamento, data_inicio=filtros.data_inicio, data_fim=filtros.data_fim) }}" style="background-color: #2b7a4b; color: white; padding: 8px 16px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.9em; display: inline-flex; align-items: center; gap: 6px;">Exportar Relatório Filtrado (CSV)</a>
             <a href="{{ url_for('admin_panel') }}" style="color: var(--navy-blue); font-weight: bold; text-decoration: none; border: 1px solid var(--navy-blue); padding: 8px 15px; border-radius: 4px; font-size: 0.9em;">← Voltar ao Admin</a>
         </div>
     </div>
@@ -61,8 +61,8 @@
             </select>
         </div>
         <div style="display: flex; gap: 8px; margin-top: 10px;">
-            <button type="submit" style="width: auto; padding: 9px 20px; background-color: var(--navy-blue); font-size: 0.9em;">🔍 Filtrar</button>
-            <a href="{{ url_for('admin_auditoria') }}" style="width: auto; padding: 9px 14px; background-color: #6c757d; color: white; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.9em; display: flex; align-items: center;">✕ Limpar</a>
+            <button type="submit" style="width: auto; padding: 9px 20px; background-color: var(--navy-blue); font-size: 0.9em;">Filtrar</button>
+            <a href="{{ url_for('admin_auditoria') }}" style="width: auto; padding: 9px 14px; background-color: #6c757d; color: white; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.9em; display: flex; align-items: center;">Limpar</a>
         </div>
     </form>
 
@@ -103,7 +103,7 @@
     </div>
     {% else %}
         <div style="text-align: center; padding: 40px; color: #64748b;">
-            <p style="font-size: 1.2em; font-weight: bold;">📭 Nenhum registro encontrado para estes filtros.</p>
+            <p style="font-size: 1.2em; font-weight: bold;">Nenhum registro encontrado para estes filtros.</p>
             <p style="font-size: 0.9em;">Tente ajustar as datas ou remover filtros específicos.</p>
         </div>
     {% endif %}

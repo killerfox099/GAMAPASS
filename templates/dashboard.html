@@ -12,18 +12,18 @@
                 Olá, {{ current_user.display_name or current_user.username }}
             </h2>
             <div style="font-size: 0.85em; color: #64748b; margin-top: 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                <span>🏢 {{ current_user.unit or 'Unidade' }} / {{ current_user.department or 'Departamento' }}</span>
+                <span>{{ current_user.unit or 'Unidade' }} / {{ current_user.department or 'Departamento' }}</span>
                 <span>•</span>
-                <span>🖥️ IP da Máquina: <strong style="color: #1d4ed8;" id="span-meu-ip">{{ current_user.machine_ip or '10.5.0.XX' }}</strong> <span style="font-size: 0.9em; color: #475569;">(DNS: 10.5.254.254)</span></span>
-                <button type="button" onclick="abrirModalMeuIp()" style="background: none; border: none; color: #2563eb; cursor: pointer; font-size: 0.85em; text-decoration: underline; padding: 0 4px; font-weight: 600;" title="Alterar ou confirmar o IP interno da sua máquina">[✏️ Alterar]</button>
+                <span>IP da Máquina: <strong style="color: #1d4ed8;" id="span-meu-ip">{{ current_user.machine_ip or '10.5.0.XX' }}</strong> <span style="font-size: 0.9em; color: #475569;">(DNS: 10.5.254.254)</span></span>
+                <button type="button" onclick="abrirModalMeuIp()" style="background: none; border: none; color: #2563eb; cursor: pointer; font-size: 0.85em; text-decoration: underline; padding: 0 4px; font-weight: 600;" title="Alterar ou confirmar o IP interno da sua máquina">[Alterar]</button>
             </div>
         </div>
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
             {% if current_user.is_admin %}
-                <a href="{{ url_for('admin_panel') }}" style="color: darkred; font-weight: bold; text-decoration: none; border: 1px solid darkred; padding: 6px 12px; border-radius: 4px; font-size: 0.88em; background: #fff5f5;">🛡️ TI</a>
+                <a href="{{ url_for('admin_panel') }}" style="color: darkred; font-weight: bold; text-decoration: none; border: 1px solid darkred; padding: 6px 12px; border-radius: 4px; font-size: 0.88em; background: #fff5f5;">TI</a>
             {% endif %}
             {% if current_user.is_hr or current_user.is_admin %}
-                <a href="{{ url_for('rh_panel') }}" style="color: #2b7a4b; font-weight: bold; text-decoration: none; border: 1px solid #2b7a4b; padding: 6px 12px; border-radius: 4px; font-size: 0.88em; background: #f0fdf4;">👩‍💼 RH</a>
+                <a href="{{ url_for('rh_panel') }}" style="color: #2b7a4b; font-weight: bold; text-decoration: none; border: 1px solid #2b7a4b; padding: 6px 12px; border-radius: 4px; font-size: 0.88em; background: #f0fdf4;">RH</a>
             {% endif %}
             <a href="{{ url_for('logout') }}" style="color: var(--navy-blue); font-weight: bold; text-decoration: none; border: 1px solid var(--navy-blue); padding: 6px 12px; border-radius: 4px; font-size: 0.88em;">Sair</a>
         </div>
@@ -32,16 +32,16 @@
     <!-- BARRA DE NAVEGAÇÃO POR ABAS -->
     <div style="display: flex; gap: 8px; border-bottom: 2px solid #cbd5e1; margin-bottom: 22px; flex-wrap: wrap;">
         <button type="button" id="tab-btn-cofre" onclick="trocarAba('cofre')" class="btn-aba-gamapass btn-aba-ativa">
-            🔐 Cofre de Senhas
+            Cofre de Senhas
         </button>
         <button type="button" id="tab-btn-mural" onclick="trocarAba('mural')" class="btn-aba-gamapass">
-            📢 Mural &amp; Comunicados
+            Mural &amp; Comunicados
             {% if global_total_nao_lidos > 0 %}
                 <span style="background-color: #ef4444; color: white; padding: 2px 7px; border-radius: 10px; font-size: 0.78em; margin-left: 5px;">{{ global_total_nao_lidos }}</span>
             {% endif %}
         </button>
         <button type="button" id="tab-btn-ramais" onclick="trocarAba('ramais')" class="btn-aba-gamapass">
-            📞 Lista de Ramais
+            Lista de Ramais
         </button>
     </div>
 
@@ -149,13 +149,13 @@
         <!-- BOTÕES SUPERIORES DE AÇÃO -->
         <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 22px;">
             <button type="button" onclick="toggleFormAdicionarSenha()" style="background-color: #0b1329; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.92em; cursor: pointer;">
-                [+] Nova Senha
+                Nova Senha
             </button>
             <button type="button" onclick="document.getElementById('arquivo_csv').click();" style="background-color: #0284c7; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.92em; cursor: pointer;">
-                [v] Importar CSV
+                Importar CSV
             </button>
-            <button type="button" onclick="document.getElementById('modalExportar').style.display='block';" style="background-color: #475569; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.92em; cursor: pointer;">
-                [&gt;] Exportar
+            <button type="button" onclick="document.getElementById('modalExportar').style.display='flex';" style="background-color: #475569; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.92em; cursor: pointer;">
+                Exportar
             </button>
             <form id="formImportacao" action="{{ url_for('importar_csv') }}" method="POST" enctype="multipart/form-data" style="display:none;">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -186,12 +186,12 @@
                             <small id="add_strength_label" style="font-size: 0.78em; color: #64748b;"></small>
                         </div>
                         <div id="add_dup_alert" style="display:none; margin-top:4px; padding: 4px 8px; background:#fefcbf; border:1px solid #d69e2e; border-radius:4px; font-size:0.8em; color:#744210;">
-                            ⚠️ Atenção: esta senha já existe no seu cofre!
+                            Atenção: esta senha já existe no seu cofre!
                         </div>
                     </div>
                     <button type="button" onclick="gerarSenha('add_pass','add_strength_bar','add_strength_label')"
                         style="padding: 9px 14px; font-size: 0.88em; background-color: #059669; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">
-                        🎲 Gerar Senha
+                        Gerar Senha
                     </button>
                 </div>
                 <div style="margin-bottom: 12px;">
@@ -206,7 +206,7 @@
 
         <!-- BARRA DE PESQUISA -->
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 18px;">
-            <input type="text" id="barraPesquisa" onkeyup="filtrarSenhas()" placeholder="🔍 Pesquisar por Serviço, URL ou Login..."
+            <input type="text" id="barraPesquisa" onkeyup="filtrarSenhas()" placeholder="Pesquisar por Serviço, URL ou Login..."
                 style="flex: 1 1 260px; padding: 10px 14px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 0.95em;">
             <select id="ordenacao" onchange="ordenarSenhas()" style="padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: white; font-size: 0.9em;">
                 <option value="az">Ordem: A → Z</option>
@@ -352,7 +352,7 @@
                 {% endfor %}
             {% else %}
                 <div style="grid-column: 1/-1; text-align: center; padding: 30px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; color: #64748b;">
-                    Nenhuma credencial cadastrada no seu cofre pessoal ainda. Clique em <strong>[+] Nova Senha</strong> ou <strong>[v] Importar CSV</strong> para começar!
+                    Nenhuma credencial cadastrada no seu cofre pessoal ainda. Clique em <strong>Nova Senha</strong> ou <strong>Importar CSV</strong> para começar!
                 </div>
             {% endif %}
         </div>
@@ -555,7 +555,7 @@
         <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 14px 18px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
             <div>
                 <h4 style="margin: 0 0 6px 0; color: #166534; font-size: 1em; font-weight: bold;">
-                    📞 Instruções de Telefonia &amp; PABX
+                    Instruções de Telefonia &amp; PABX
                 </h4>
                 <div style="font-size: 0.85em; color: #15803d; line-height: 1.5;">
                     • <strong>Transferir ligação:</strong> FLASH + NÚMERO RAMAL<br>
@@ -565,15 +565,15 @@
                 </div>
             </div>
             <div style="text-align: right; font-size: 0.85em; color: #1e293b; background: white; padding: 8px 12px; border-radius: 6px; border: 1px solid #bbf7d0;">
-                <div>📍 <strong>Campina Grande:</strong> (83) 3315-4500</div>
-                <div>📍 <strong>João Pessoa:</strong> (83) 3215-5666</div>
+                <div><strong>Campina Grande:</strong> (83) 3315-4500</div>
+                <div><strong>João Pessoa:</strong> (83) 3215-5666</div>
             </div>
         </div>
 
         <!-- BARRA DE AÇÕES DO RH E EXPORTAÇÃO PDF -->
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
             <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; flex: 1;">
-                <input type="text" id="buscaRamalInput" onkeyup="filtrarTabelaRamais()" placeholder="🔍 Pesquisar por Nome, Setor, Ramal, E-mail ou Celular..."
+                <input type="text" id="buscaRamalInput" onkeyup="filtrarTabelaRamais()" placeholder="Pesquisar por Nome, Setor, Ramal, E-mail ou Celular..."
                     style="flex: 1 1 260px; padding: 10px 14px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 0.95em;">
                 
                 <div style="display: flex; gap: 6px;">
@@ -586,11 +586,11 @@
             <div style="display: flex; gap: 10px; align-items: center;">
                 {% if current_user.is_hr or current_user.is_admin %}
                     <button type="button" onclick="toggleFormAdicionarRamal()" style="background-color: #15803d; color: white; padding: 10px 16px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.9em; cursor: pointer;">
-                        ➕ Adicionar Contato
+                        Adicionar Contato
                     </button>
                 {% endif %}
                 <a href="{{ url_for('exportar_ramais_pdf') }}" style="background-color: #dc2626; color: white; padding: 10px 16px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.9em; text-decoration: none; display: flex; align-items: center; gap: 6px;">
-                    📄 Exportar PDF
+                    Exportar PDF
                 </a>
             </div>
         </div>
@@ -598,7 +598,7 @@
         <!-- FORMULÁRIO DE ADICIONAR RAMAL (RH / ADMIN) -->
         {% if current_user.is_hr or current_user.is_admin %}
         <div id="box-novo-ramal" style="display: none; background: #f8fafc; border: 1.5px solid #2563eb; border-radius: 8px; padding: 18px; margin-bottom: 20px;">
-            <h4 style="margin: 0 0 12px 0; color: #1e3a8a; font-size: 1.05em;">➕ Novo Contato na Lista de Ramais</h4>
+            <h4 style="margin: 0 0 12px 0; color: #1e3a8a; font-size: 1.05em;">Novo Contato na Lista de Ramais</h4>
             <form method="POST" action="{{ url_for('ramais_adicionar') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
@@ -637,7 +637,7 @@
                     </div>
                 </div>
                 <div style="display: flex; gap: 10px;">
-                    <button type="submit" style="background-color: #15803d; color: white; padding: 9px 20px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;">💾 Salvar Contato</button>
+                    <button type="submit" style="background-color: #15803d; color: white; padding: 9px 20px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;">Salvar Contato</button>
                     <button type="button" onclick="toggleFormAdicionarRamal()" style="background-color: #94a3b8; color: white; padding: 9px 16px; border: none; border-radius: 4px; cursor: pointer;">Cancelar</button>
                 </div>
             </form>
@@ -765,7 +765,7 @@
 {% if current_user.is_hr or current_user.is_admin %}
 <div id="modalEditarRamal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center;">
     <div style="background: white; border-radius: 8px; padding: 22px; max-width: 550px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-        <h3 style="margin: 0 0 15px 0; color: #1e3a8a;">✏️ Editar Informações do Ramal</h3>
+        <h3 style="margin: 0 0 15px 0; color: #1e3a8a;">Editar Informações do Ramal</h3>
         <form id="formEditarRamal" method="POST" action="">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
@@ -807,7 +807,7 @@
             </div>
             <div style="display: flex; justify-content: flex-end; gap: 10px;">
                 <button type="button" onclick="fecharModalEditarRamal()" style="padding: 8px 16px; background: #94a3b8; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancelar</button>
-                <button type="submit" style="padding: 8px 18px; background: #2563eb; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">💾 Salvar Alterações</button>
+                <button type="submit" style="padding: 8px 18px; background: #2563eb; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Salvar Alterações</button>
             </div>
         </form>
     </div>
@@ -880,7 +880,7 @@
             toastClipboard.style.cssText = 'position: fixed; bottom: 25px; right: 25px; background: #0f172a; color: white; padding: 12px 18px; border-radius: 8px; font-size: 0.88em; box-shadow: 0 8px 24px rgba(0,0,0,0.3); z-index: 100000; display: flex; align-items: center; gap: 10px; border-left: 4px solid #10b981; transition: opacity 0.3s;';
             document.body.appendChild(toastClipboard);
         }
-        toastClipboard.innerHTML = `<span>🔒</span> <span>${msg}</span>`;
+        toastClipboard.innerHTML = `<span>${msg}</span>`;
         toastClipboard.style.opacity = '1';
         toastClipboard.style.display = 'flex';
         setTimeout(() => {
@@ -1218,7 +1218,7 @@
     <div style="background: white; border-radius: 8px; max-width: 440px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; font-family: inherit;">
         <div style="background: var(--navy-blue); color: white; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
             <h4 style="margin: 0; font-size: 1.1em; display: flex; align-items: center; gap: 8px;">
-                🖥️ IP Interno da Máquina
+                IP Interno da Máquina
             </h4>
             <button type="button" onclick="fecharModalMeuIp()" style="background: none; border: none; color: white; font-size: 1.2em; cursor: pointer;">&times;</button>
         </div>
@@ -1238,9 +1238,34 @@
             </div>
             <div style="display: flex; gap: 10px; justify-content: flex-end;">
                 <button type="button" onclick="fecharModalMeuIp()" style="padding: 8px 16px; background: #64748b; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Cancelar</button>
-                <button type="submit" style="padding: 8px 18px; background: #1d4ed8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.9em;">💾 Salvar IP</button>
+                <button type="submit" style="padding: 8px 18px; background: #1d4ed8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.9em;">Salvar IP</button>
             </div>
         </form>
     </div>
 </div>
+
+<!-- MODAL DE EXPORTAÇÃO SEGURA (CSV) -->
+<div id="modalExportar" style="display: none; position: fixed; inset: 0; background: rgba(11, 19, 41, 0.65); z-index: 99999; align-items: center; justify-content: center; padding: 15px; backdrop-filter: blur(2px);">
+    <div style="background: white; border-radius: 8px; max-width: 440px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; font-family: inherit;">
+        <div style="background: var(--navy-blue); color: white; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
+            <h4 style="margin: 0; font-size: 1.1em; font-family: inherit;">Exportar Credenciais (CSV)</h4>
+            <button type="button" onclick="document.getElementById('modalExportar').style.display='none';" style="background: none; border: none; color: white; font-size: 1.2em; cursor: pointer;">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('exportar_csv') }}" style="padding: 20px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <p style="font-size: 0.9em; color: #475569; margin-top: 0; line-height: 1.4;">
+                Por motivos de segurança, informe sua <strong>senha mestra</strong> para autorizar a exportação de todas as suas credenciais descriptografadas:
+            </p>
+            <div class="form-group" style="margin-bottom: 18px;">
+                <label style="font-weight: 600; font-size: 0.9em; color: #1e293b; display: block; margin-bottom: 5px;">Sua Senha Mestra Atual:</label>
+                <input type="password" name="master_password" required placeholder="Digite sua senha de login" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1em; box-sizing: border-box;">
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" onclick="document.getElementById('modalExportar').style.display='none';" style="padding: 8px 16px; background: #64748b; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Cancelar</button>
+                <button type="submit" style="padding: 8px 18px; background: #0284c7; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.9em;">Exportar CSV</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}

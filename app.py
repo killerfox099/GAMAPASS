@@ -627,10 +627,10 @@ def enviar_email_convite(destinatario, username, senha_provisoria, link_acesso):
         f"Olá!\n\n"
         f"Você foi cadastrado na plataforma GAMAPASS — o cofre corporativo de credenciais e senhas da Gama Caminhões.\n\n"
         f"Abaixo estão os seus dados para o primeiro acesso:\n"
-        f"🔗 Link de Acesso: {link_acesso}\n"
-        f"👤 Usuário: {username}\n"
-        f"🔑 Senha Provisória: {senha_provisoria}\n\n"
-        f"⚠️ Importante: Ao fazer login pela primeira vez, o sistema solicitará obrigatoriamente "
+        f"Link de Acesso: {link_acesso}\n"
+        f"Usuário: {username}\n"
+        f"Senha Provisória: {senha_provisoria}\n\n"
+        f"Importante: Ao fazer login pela primeira vez, o sistema solicitará obrigatoriamente "
         f"que você cadastre sua senha pessoal definitiva e complete seus dados.\n\n"
         f"Atenciosamente,\n"
         f"Equipe de Tecnologia da Informação\n"
@@ -684,7 +684,7 @@ def login():
                 ip_mudou = (user.last_login_ip and user.last_login_ip != current_ip) and not mesma_rede_gama
                 ua_mudou = user.last_user_agent and user.last_user_agent != current_ua
                 if ip_mudou or ua_mudou:
-                    assunto = "⚠️ Alerta de Segurança - Novo Acesso Detectado no GAMAPASS"
+                    assunto = "Alerta de Segurança - Novo Acesso Detectado no GAMAPASS"
                     corpo = (
                         f"Olá, {user.display_name or user.username}!\n\n"
                         f"Identificamos um novo acesso à sua conta no GAMAPASS a partir de um endereço IP ou dispositivo diferente do habitual:\n\n"
@@ -1094,7 +1094,7 @@ def editar_senha(pass_id):
                 
                 # Disparo de e-mail informativo se o destinatário tiver e-mail
                 if share.recipient and share.recipient.email:
-                    assunto_email = f"🔔 Atualização de Credencial Compartilhada - {entry.service_name}"
+                    assunto_email = f"Atualização de Credencial Compartilhada - {entry.service_name}"
                     corpo_email = (
                         f"Olá, {share.recipient.display_name or share.recipient.username}!\n\n"
                         f"Informamos que os dados de acesso da credencial do serviço \"{entry.service_name}\" compartilhada por {remetente_nome} no GAMAPASS foram atualizados.\n\n"
@@ -1420,7 +1420,7 @@ def admin_panel():
                 if sucesso:
                     flash(f"Funcionário '{username}' cadastrado com sucesso e convite entregue em {full_email}!", 'success')
                 else:
-                    flash(f"Funcionário '{username}' cadastrado com sucesso! Porém o envio do e-mail falhou ({detalhe_erro}). Você pode clicar em '✉️ Reenviar Convite' na lista abaixo para tentar novamente. Senha provisória: {password}", 'warning')
+                    flash(f"Funcionário '{username}' cadastrado com sucesso! Porém o envio do e-mail falhou ({detalhe_erro}). Você pode clicar em 'Reenviar Convite' na lista abaixo para tentar novamente. Senha provisória: {password}", 'warning')
             else:
                 flash(f"Funcionário '{username}' cadastrado com sucesso!", 'success')
             
@@ -1493,6 +1493,49 @@ def admin_desbloquear_usuario(user_id):
     
     registrar_auditoria('USUARIO_DESBLOQUEADO', f'O Administrador "{current_user.username}" desbloqueou manualmente a conta de "{usuario.username}".')
     flash(f"Conta de '{usuario.username}' desbloqueada com sucesso!", 'success')
+    return redirect(url_for('admin_panel'))
+
+
+@app.route('/admin/reenviar_todos_pendentes', methods=['POST'])
+@login_required
+def admin_reenviar_todos_pendentes():
+    if not current_user.is_admin:
+        flash('Acesso negado.', 'error')
+        return redirect(url_for('dashboard'))
+
+    pendentes = User.query.filter_by(is_first_login=True).all()
+    if not pendentes:
+        flash('Nenhum usuário com primeiro acesso pendente encontrado.', 'info')
+        return redirect(url_for('admin_panel'))
+
+    link_acesso = request.host_url.rstrip('/') + url_for('login')
+    enviados = 0
+    falhas = 0
+    sem_email = 0
+
+    for u in pendentes:
+        if not u.email:
+            sem_email += 1
+            continue
+        try:
+            provisional_pass = ''.join(random.choices(string.ascii_letters + string.digits, k=8)) + '@!'
+            u.password_hash = generate_password_hash(provisional_pass, method='scrypt')
+            u.is_first_login = True
+            sucesso, detalhe_erro = enviar_email_convite(u.email, u.username, provisional_pass, link_acesso)
+            if sucesso:
+                enviados += 1
+            else:
+                falhas += 1
+        except Exception:
+            falhas += 1
+
+    db.session.commit()
+    msg = f"Disparo concluído: {enviados} convite(s) reenviado(s) com sucesso."
+    if falhas > 0:
+        msg += f" {falhas} falha(s) no envio."
+    if sem_email > 0:
+        msg += f" {sem_email} usuário(s) sem e-mail cadastrado."
+    flash(msg, 'success' if enviados > 0 else 'warning')
     return redirect(url_for('admin_panel'))
 
 @app.route('/admin/reenviar_convite/<int:user_id>', methods=['GET', 'POST'])
