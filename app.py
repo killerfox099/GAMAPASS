@@ -48,6 +48,11 @@ def request_entity_too_large(error):
     flash('O arquivo enviado ultrapassa o limite máximo permitido de 15MB.', 'error')
     return redirect(request.url or url_for('dashboard'))
 
+@app.errorhandler(429)
+def ratelimit_exceeded(error):
+    flash('Muitas requisições em curto intervalo de tempo. Por favor, aguarde um minuto antes de tentar novamente.', 'warning')
+    return redirect(url_for('login'))
+
 @app.after_request
 def aplicar_cabecalhos_seguranca(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -659,7 +664,7 @@ def enviar_email_convite(destinatario, username, senha_provisoria, link_acesso):
 # ================= ROTAS DE AUTENTICAÇÃO =================
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/login', methods=['GET', 'POST'])
-@limiter.limit('5 per minute')
+@limiter.limit('30 per minute', methods=['POST'])
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
@@ -751,32 +756,61 @@ def login():
     return render_template('login.html')
 
 @app.route('/esqueceu-senha', methods=['GET', 'POST'])
-@limiter.limit('3 per minute')
+@limiter.limit('5 per minute', methods=['POST'])
 def forgot_password():
     if request.method == 'POST':
-        username = request.form.get('username')
+        username = (request.form.get('username') or '').strip()
         user = User.query.filter_by(username=username).first()
         
         if user and user.email:
-            temp_pass = ''.join(random.choices(string.ascii_lowercase, k=3)) + \
-                        ''.join(random.choices(string.ascii_uppercase, k=3)) + \
-                        ''.join(random.choices(string.digits, k=2)) + "@!"
-            
-            user.password_hash = generate_password_hash(temp_pass, method='scrypt')
-            user.requires_password_reset = True
-            db.session.commit()
-            
-            sucesso = enviar_email_recuperacao(user.email, temp_pass)
-            if sucesso:
-                flash('Uma senha temporária foi enviada para o e-mail cadastrado.', 'success')
-            else:
-                flash(f'Falha ao conectar com servidor de e-mail. Senha temporária: {temp_pass}', 'error')
+            from itsdangerous import URLSafeTimedSerializer
+            s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+            token = s.dumps({'user_id': user.id}, salt='recuperacao-senha-token')
+            link_redefinicao = request.host_url.rstrip('/') + url_for('recuperar_conta', token=token)
+            sucesso = enviar_email_recuperacao(user.email, link_redefinicao)
+            if not sucesso:
+                print(f"ERRO EMAIL: Falha ao enviar link de recuperação para {user.email}")
                 
-            return redirect(url_for('login'))
-        else:
-            flash('Usuário não encontrado ou sem e-mail cadastrado.', 'error')
-            
+        flash('Se o usuário informado existir e possuir e-mail cadastrado, você receberá um link seguro de recuperação em instantes.', 'info')
+        return redirect(url_for('login'))
+
     return render_template('forgot_password.html')
+
+@app.route('/recuperar-conta/<token>', methods=['GET', 'POST'])
+def recuperar_conta(token):
+    from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
+    s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+    try:
+        data = s.loads(token, salt='recuperacao-senha-token', max_age=1200)  # 20 minutos
+        user_id = data.get('user_id')
+        user = User.query.get_or_404(user_id)
+    except (SignatureExpired, BadSignature):
+        flash('O link de recuperação expirou ou é inválido. Por favor, solicite um novo.', 'error')
+        return redirect(url_for('forgot_password'))
+
+    if request.method == 'POST':
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+
+        if new_password != confirm_password:
+            flash('As senhas não coincidem.', 'error')
+            return render_template('reset_password.html', form_action=url_for('recuperar_conta', token=token), subtitulo='Defina sua nova senha pessoal de acesso.')
+
+        regex_senha = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%*|&]).{8,}$'
+        if not re.match(regex_senha, new_password):
+            flash('A senha não atende aos requisitos de segurança (mínimo 8 caracteres, maiúscula, minúscula, número e caractere especial).', 'error')
+            return render_template('reset_password.html', form_action=url_for('recuperar_conta', token=token), subtitulo='Defina sua nova senha pessoal de acesso.')
+
+        user.password_hash = generate_password_hash(new_password, method='scrypt')
+        user.requires_password_reset = False
+        user.failed_login_attempts = 0
+        user.locked_until = None
+        db.session.commit()
+        registrar_auditoria('SENHA_REDEFINIDA', f'Usuário "{user.username}" redefiniu sua senha com sucesso via link seguro.')
+        flash('Sua senha foi atualizada com sucesso! Você já pode entrar com a nova credencial.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('reset_password.html', form_action=url_for('recuperar_conta', token=token), subtitulo='Defina sua nova senha pessoal de acesso.')
 
 @app.route('/primeiro-acesso', methods=['GET', 'POST'])
 @login_required
