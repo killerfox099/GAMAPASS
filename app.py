@@ -15,6 +15,8 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 from cryptography.fernet import Fernet
 from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
 
@@ -29,6 +31,7 @@ def regex_search_filter(value, pattern):
 
 # ================= CONFIGURAÇÕES DINÂMICAS =================
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chave_de_sessao_fallback_local')
+limiter = Limiter(get_remote_address, app=app, default_limits=["200 per day", "50 per hour"], storage_uri="memory://")
 
 # Blindagem de Cookies de Sessão (OWASP)
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -76,9 +79,21 @@ login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
 
-# Chave de criptografia Fernet (deve ter 32 bytes base64 url-safe)
-chave_padrao = 'dCyX0U3oHIROiltcaOR1PwkWry4yhMSLmQve55uDtsA=' 
-ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY', chave_padrao).strip().encode('utf-8')
+# Chave de criptografia Fernet (Segura / Fail-safe)
+_enc_key = os.environ.get('ENCRYPTION_KEY')
+if not _enc_key:
+    key_path = os.path.join(os.path.dirname(__file__), 'secret.key')
+    if os.path.exists(key_path):
+        with open(key_path, 'r') as f:
+            _enc_key = f.read().strip()
+    else:
+        # Migração da chave antiga para arquivo local para evitar perda de dados
+        old_key = 'dCyX0U3oHIROiltcaOR1PwkWry4yhMSLmQve55uDtsA='
+        with open(key_path, 'w') as f:
+            f.write(old_key)
+        _enc_key = old_key
+        print("AVISO: Chave criptográfica hardcoded migrada para secret.key!")
+ENCRYPTION_KEY = _enc_key.encode('utf-8')
 cipher_suite = Fernet(ENCRYPTION_KEY)
 
 from datetime import datetime, timedelta, timezone
@@ -634,6 +649,7 @@ def enviar_email_convite(destinatario, username, senha_provisoria, link_acesso):
 # ================= ROTAS DE AUTENTICAÇÃO =================
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit('5 per minute')
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
@@ -726,6 +742,7 @@ def login():
     return render_template('login.html')
 
 @app.route('/esqueceu-senha', methods=['GET', 'POST'])
+@limiter.limit('3 per minute')
 def forgot_password():
     if request.method == 'POST':
         username = request.form.get('username')
@@ -763,7 +780,7 @@ def first_setup():
         form_data = request.form
         new_password = request.form.get('new_password')
         
-        regex_senha = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%*|&]).+$'
+        regex_senha = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%*|&]).{8,}$'
         if not re.match(regex_senha, new_password):
             flash('Erro: A senha não atende aos requisitos mínimos de segurança.', 'error')
             return render_template('first_setup.html', form_data=form_data)
@@ -801,7 +818,7 @@ def force_password_reset():
             flash('As senhas não coincidem.', 'error')
             return render_template('reset_password.html')
 
-        regex_senha = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%*|&]).+$'
+        regex_senha = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%*|&]).{8,}$'
         if not re.match(regex_senha, new_password):
             flash('A senha não atende aos requisitos de segurança.', 'error')
             return render_template('reset_password.html')
@@ -895,7 +912,7 @@ def dashboard():
             'service_name': entry.service_name, 
             'service_url': entry.service_url, 
             'service_username': entry.service_username, 
-            'password': decrypted_pw,
+            'password': '',
             'notes': decrypted_notes,
             'shares': shares_info
         })
@@ -924,7 +941,7 @@ def dashboard():
             'service_name': entry.service_name,
             'service_url': entry.service_url,
             'service_username': entry.service_username,
-            'password': decrypted_pw,
+            'password': '',
             'notes': decrypted_notes,
             'sender_username': s.sender.username if s.sender else 'Usuário',
             'sender_name': s.sender.display_name or s.sender.username if s.sender else 'Usuário',
@@ -1325,9 +1342,14 @@ def salvar_importacao():
         
     return redirect(url_for('dashboard'))
 
-@app.route('/exportar-csv')
+@app.route('/exportar-csv', methods=['POST'])
 @login_required
 def exportar_csv():
+    master_password = request.form.get('master_password')
+    if not check_password_hash(current_user.password_hash, master_password):
+        flash('Senha mestra incorreta. Exportação cancelada.', 'error')
+        return redirect(url_for('dashboard'))
+
     senhas = SavedPassword.query.filter_by(user_id=current_user.id).all()
     output = io.StringIO()
     writer = csv.writer(output, delimiter=';')
@@ -1566,6 +1588,10 @@ def editar_usuario(user_id):
 def delete_user(user_id):
     if not current_user.is_admin:
         flash('Acesso negado.', 'error')
+        return redirect(url_for('admin_panel'))
+        
+    if current_user.id == user_id:
+        flash('Você não pode excluir sua própria conta de administrador.', 'error')
         return redirect(url_for('admin_panel'))
         
     if request.method == 'GET':
@@ -2127,7 +2153,34 @@ def baixar_arquivo_aviso(file_id):
     arq = AnnouncementFile.query.get_or_404(file_id)
     # Registrar leitura do aviso ao qual o arquivo pertence
     registrar_leitura(arq.announcement_id)
-    return send_file(io.BytesIO(arq.file_data), download_name=arq.filename, as_attachment=False)
+    return send_file(io.BytesIO(arq.file_data), download_name=arq.filename, as_attachment=True)
+
+
+@app.route('/api/get_password/<int:pass_id>', methods=['POST'])
+@login_required
+@csrf.exempt
+def api_get_password(pass_id):
+    entry = SavedPassword.query.get_or_404(pass_id)
+    if entry.user_id != current_user.id:
+        return jsonify({'error': 'Acesso negado'}), 403
+    try:
+        senha = cipher_suite.decrypt(entry.encrypted_password).decode('utf-8')
+        return jsonify({'password': senha})
+    except Exception:
+        return jsonify({'error': 'Erro de criptografia'}), 500
+
+@app.route('/api/get_shared_password/<int:share_id>', methods=['POST'])
+@login_required
+@csrf.exempt
+def api_get_shared_password(share_id):
+    share = PasswordShare.query.get_or_404(share_id)
+    if share.recipient_id != current_user.id:
+        return jsonify({'error': 'Acesso negado'}), 403
+    try:
+        senha = cipher_suite.decrypt(share.password_ref.encrypted_password).decode('utf-8')
+        return jsonify({'password': senha})
+    except Exception:
+        return jsonify({'error': 'Erro de criptografia'}), 500
 
 @app.route('/api/ping_sessao', methods=['POST'])
 @login_required

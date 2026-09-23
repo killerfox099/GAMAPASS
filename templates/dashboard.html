@@ -154,9 +154,9 @@
             <button type="button" onclick="document.getElementById('arquivo_csv').click();" style="background-color: #0284c7; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.92em; cursor: pointer;">
                 [v] Importar CSV
             </button>
-            <a href="{{ url_for('exportar_csv') }}" style="background-color: #475569; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.92em; text-decoration: none;">
+            <button type="button" onclick="document.getElementById('modalExportar').style.display='block';" style="background-color: #475569; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.92em; cursor: pointer;">
                 [&gt;] Exportar
-            </a>
+            </button>
             <form id="formImportacao" action="{{ url_for('importar_csv') }}" method="POST" enctype="multipart/form-data" style="display:none;">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="file" id="arquivo_csv" name="arquivo_csv" accept=".csv" onchange="document.getElementById('formImportacao').submit()">
@@ -237,7 +237,7 @@
                         <div style="font-size: 0.92em; color: #475569; display: flex; align-items: center; gap: 8px;">
                             <span>Senha:</span>
                             <span id="pass-mask-{{ entry.id }}" style="font-family: monospace; font-size: 1.1em; letter-spacing: 2px; color: #1e293b;">••••••••••</span>
-                            <span id="pass-real-{{ entry.id }}" style="display: none; font-family: monospace; font-size: 1.05em; font-weight: bold; color: #0f172a; background: #e2e8f0; padding: 2px 6px; border-radius: 4px;">{{ entry.password }}</span>
+                            <span id="pass-real-{{ entry.id }}" style="display: none; font-family: monospace; font-size: 1.05em; font-weight: bold; color: #0f172a; background: #e2e8f0; padding: 2px 6px; border-radius: 4px;"></span>
                         </div>
 
                         <!-- 4. Link -->
@@ -283,7 +283,7 @@
                             <button type="button" class="btn-compartilhar-v2" onclick="alternarVerSenha('{{ entry.id }}', this)" style="flex: 1; padding: 6px 12px; font-size: 0.85em; text-align: center;">
                                 Ver
                             </button>
-                            <button type="button" class="btn-compartilhar-v2" onclick="copiarSenhaDireta('{{ entry.password }}', this)" style="flex: 1; padding: 6px 12px; font-size: 0.85em; text-align: center;">
+                            <button type="button" class="btn-compartilhar-v2" onclick="copiarSenhaAJAX('{{ entry.id }}', this, 'propria')" style="flex: 1; padding: 6px 12px; font-size: 0.85em; text-align: center;">
                                 Copiar
                             </button>
                         </div>
@@ -382,7 +382,7 @@
                     <div style="font-size: 0.92em; color: #334155; display: flex; align-items: center; gap: 8px;">
                         <span>Senha:</span>
                         <span id="share-pass-mask-{{ s.id }}" style="font-family: monospace; font-size: 1.1em; letter-spacing: 2px; color: #0f766e;">••••••••••</span>
-                        <span id="share-pass-real-{{ s.id }}" style="display: none; font-family: monospace; font-size: 1.05em; font-weight: bold; color: #115e59; background: #ccfbf1; padding: 2px 6px; border-radius: 4px;">{{ s.password }}</span>
+                        <span id="share-pass-real-{{ s.id }}" style="display: none; font-family: monospace; font-size: 1.05em; font-weight: bold; color: #115e59; background: #ccfbf1; padding: 2px 6px; border-radius: 4px;"></span>
                     </div>
 
                     {% if s.service_url %}
@@ -410,7 +410,7 @@
                         <button type="button" class="btn-compartilhar-v2" onclick="alternarVerSenhaCompartilhada('{{ s.id }}', this)" style="background-color: #0d9488; flex: 1; padding: 6px 12px; font-size: 0.85em; text-align: center;">
                             Ver
                         </button>
-                        <button type="button" class="btn-compartilhar-v2" onclick="copiarSenhaDireta('{{ s.password }}', this)" style="background-color: #0d9488; flex: 1; padding: 6px 12px; font-size: 0.85em; text-align: center;">
+                        <button type="button" class="btn-compartilhar-v2" onclick="copiarSenhaAJAX('{{ s.id }}', this, 'compartilhada')" style="background-color: #0d9488; flex: 1; padding: 6px 12px; font-size: 0.85em; text-align: center;">
                             Copiar
                         </button>
                     </div>
@@ -839,37 +839,9 @@
         if (box) box.style.display = box.style.display === 'none' ? 'block' : 'none';
     }
 
-    function alternarVerSenha(id, btn) {
-        const mask = document.getElementById('pass-mask-' + id);
-        const real = document.getElementById('pass-real-' + id);
-        if (mask && real) {
-            if (real.style.display === 'none') {
-                real.style.display = 'inline';
-                mask.style.display = 'none';
-                btn.textContent = 'Ocultar';
-            } else {
-                real.style.display = 'none';
-                mask.style.display = 'inline';
-                btn.textContent = 'Ver';
-            }
-        }
-    }
+    
 
-    function alternarVerSenhaCompartilhada(id, btn) {
-        const mask = document.getElementById('share-pass-mask-' + id);
-        const real = document.getElementById('share-pass-real-' + id);
-        if (mask && real) {
-            if (real.style.display === 'none') {
-                real.style.display = 'inline';
-                mask.style.display = 'none';
-                btn.textContent = 'Ocultar';
-            } else {
-                real.style.display = 'none';
-                mask.style.display = 'inline';
-                btn.textContent = 'Ver';
-            }
-        }
-    }
+    
 
     function alternarNotaSegura(id, btn) {
         const nota = document.getElementById('nota-segura-' + id);
@@ -917,6 +889,82 @@
                 setTimeout(() => { if (toastClipboard) toastClipboard.style.display = 'none'; }, 300);
             }
         }, 4500);
+    }
+
+    
+    function fetchPassword(id, tipo) {
+        const url = tipo === 'compartilhada' ? '/api/get_shared_password/' + id : '/api/get_password/' + id;
+        return fetch(url, {method: 'POST', headers:{'Content-Type': 'application/json'}})
+            .then(res => res.json())
+            .then(data => data.password || data.error);
+    }
+
+    async function alternarVerSenha(id, btn) {
+        const mask = document.getElementById('pass-mask-' + id);
+        const real = document.getElementById('pass-real-' + id);
+        if (mask && real) {
+            if (real.style.display === 'none') {
+                if (!real.textContent) {
+                    btn.textContent = '...';
+                    real.textContent = await fetchPassword(id, 'propria');
+                }
+                real.style.display = 'inline';
+                mask.style.display = 'none';
+                btn.textContent = 'Ocultar';
+            } else {
+                real.style.display = 'none';
+                mask.style.display = 'inline';
+                btn.textContent = 'Ver';
+            }
+        }
+    }
+
+    async function alternarVerSenhaCompartilhada(id, btn) {
+        const mask = document.getElementById('share-pass-mask-' + id);
+        const real = document.getElementById('share-pass-real-' + id);
+        if (mask && real) {
+            if (real.style.display === 'none') {
+                if (!real.textContent) {
+                    btn.textContent = '...';
+                    real.textContent = await fetchPassword(id, 'compartilhada');
+                }
+                real.style.display = 'inline';
+                mask.style.display = 'none';
+                btn.textContent = 'Ocultar';
+            } else {
+                real.style.display = 'none';
+                mask.style.display = 'inline';
+                btn.textContent = 'Ver';
+            }
+        }
+    }
+
+    async function copiarSenhaAJAX(id, btn, tipo) {
+        const orig = btn.textContent;
+        btn.textContent = '...';
+        const senha = await fetchPassword(id, tipo);
+        
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(senha).then(() => {
+                btn.textContent = 'Copiado!';
+                btn.style.backgroundColor = '#059669';
+                setTimeout(() => { btn.textContent = orig; btn.style.backgroundColor = ''; }, 2000);
+                exibirToastClipboard("Senha copiada! Por segurança, a área de transferência será limpa em 45 segundos.");
+                if (timerLimpezaClipboard) clearTimeout(timerLimpezaClipboard);
+                timerLimpezaClipboard = setTimeout(() => { navigator.clipboard.writeText(''); }, 45000);
+            });
+        } else {
+            const temp = document.createElement('textarea');
+            temp.value = senha;
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+            btn.textContent = 'Copiado!';
+            btn.style.backgroundColor = '#059669';
+            setTimeout(() => { btn.textContent = orig; btn.style.backgroundColor = ''; }, 2000);
+            exibirToastClipboard("Senha copiada!");
+        }
     }
 
     function copiarSenhaDireta(senha, btn) {
@@ -1126,7 +1174,7 @@
     function checkDuplicate(val, alertId) {
         const alert = document.getElementById(alertId);
         if (!alert || !val) { if (alert) alert.style.display='none'; return; }
-        const senhas = {{ entries | map(attribute='password') | list | tojson }};
+        const senhas = []; // Duplicate check disabled for security
         const dup = senhas.some(s => s === val);
         alert.style.display = dup ? 'block' : 'none';
     }
