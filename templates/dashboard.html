@@ -892,11 +892,23 @@
     }
 
     
-    function fetchPassword(id, tipo) {
+    async function fetchPassword(id, tipo) {
         const url = tipo === 'compartilhada' ? '/api/get_shared_password/' + id : '/api/get_password/' + id;
-        return fetch(url, {method: 'POST', headers:{'Content-Type': 'application/json'}})
-            .then(res => res.json())
-            .then(data => data.password || data.error);
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                return errData.error || 'Erro ao carregar';
+            }
+            const data = await res.json();
+            return data.password || data.error || 'Erro';
+        } catch (e) {
+            console.error('Erro ao buscar senha:', e);
+            return 'Erro de conexão';
+        }
     }
 
     async function alternarVerSenha(id, btn) {
@@ -905,8 +917,15 @@
         if (mask && real) {
             if (real.style.display === 'none') {
                 if (!real.textContent) {
+                    const origText = btn.textContent;
                     btn.textContent = '...';
-                    real.textContent = await fetchPassword(id, 'propria');
+                    try {
+                        const senha = await fetchPassword(id, 'propria');
+                        real.textContent = senha;
+                    } catch (err) {
+                        btn.textContent = origText;
+                        return;
+                    }
                 }
                 real.style.display = 'inline';
                 mask.style.display = 'none';
@@ -925,8 +944,15 @@
         if (mask && real) {
             if (real.style.display === 'none') {
                 if (!real.textContent) {
+                    const origText = btn.textContent;
                     btn.textContent = '...';
-                    real.textContent = await fetchPassword(id, 'compartilhada');
+                    try {
+                        const senha = await fetchPassword(id, 'compartilhada');
+                        real.textContent = senha;
+                    } catch (err) {
+                        btn.textContent = origText;
+                        return;
+                    }
                 }
                 real.style.display = 'inline';
                 mask.style.display = 'none';
@@ -942,28 +968,11 @@
     async function copiarSenhaAJAX(id, btn, tipo) {
         const orig = btn.textContent;
         btn.textContent = '...';
-        const senha = await fetchPassword(id, tipo);
-        
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(senha).then(() => {
-                btn.textContent = 'Copiado!';
-                btn.style.backgroundColor = '#059669';
-                setTimeout(() => { btn.textContent = orig; btn.style.backgroundColor = ''; }, 2000);
-                exibirToastClipboard("Senha copiada! Por segurança, a área de transferência será limpa em 45 segundos.");
-                if (timerLimpezaClipboard) clearTimeout(timerLimpezaClipboard);
-                timerLimpezaClipboard = setTimeout(() => { navigator.clipboard.writeText(''); }, 45000);
-            });
-        } else {
-            const temp = document.createElement('textarea');
-            temp.value = senha;
-            document.body.appendChild(temp);
-            temp.select();
-            document.execCommand('copy');
-            document.body.removeChild(temp);
-            btn.textContent = 'Copiado!';
-            btn.style.backgroundColor = '#059669';
-            setTimeout(() => { btn.textContent = orig; btn.style.backgroundColor = ''; }, 2000);
-            exibirToastClipboard("Senha copiada!");
+        try {
+            const senha = await fetchPassword(id, tipo);
+            copiarSenhaDireta(senha, btn);
+        } catch (err) {
+            btn.textContent = orig;
         }
     }
 

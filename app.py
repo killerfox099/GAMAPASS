@@ -9,7 +9,7 @@ import string
 from urllib.parse import urlparse
 from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
-from flask import Flask, Response, render_template, redirect, url_for, request, flash, send_file
+from flask import Flask, Response, render_template, redirect, url_for, request, flash, send_file, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
