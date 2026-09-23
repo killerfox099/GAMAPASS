@@ -297,6 +297,56 @@ def api_atualizar_meu_ip():
         flash(f'IP da máquina atualizado para {novo_ip} (DNS: {GAMA_CORPORATE_DNS}) com sucesso!', 'success')
     return redirect(url_for('dashboard'))
 
+AGENT_SHARED_TOKEN = os.environ.get('AGENT_SECRET_KEY', 'GAMA-AGENT-SEC-2026')
+
+@app.route('/api/reportar_ip_maquina', methods=['POST'])
+@csrf.exempt
+def api_reportar_ip_maquina():
+    """Endpoint chamado pelo mini-script de inicialização do Windows para sincronizar o IP dinâmico DHCP."""
+    data = request.get_json(silent=True) or {}
+    identifier = (data.get('username') or data.get('identifier') or '').strip()
+    local_ip = (data.get('local_ip') or '').strip()
+    token = (data.get('token') or '').strip()
+    
+    raw_ip = get_client_ip()
+    eh_rede_gama = raw_ip in GAMA_PUBLIC_IPS or raw_ip.startswith(('187.115.', '189.112.', '10.', '192.168.', '127.'))
+    
+    if token != AGENT_SHARED_TOKEN and not eh_rede_gama:
+        return {'status': 'error', 'message': 'Não autorizado'}, 403
+        
+    if not identifier or not local_ip:
+        return {'status': 'error', 'message': 'Dados incompletos: informe identifier e local_ip'}, 400
+        
+    user = User.query.filter(
+        db.or_(
+            User.username == identifier,
+            User.email == identifier,
+            User.username.ilike(f"%{identifier}%"),
+            User.email.ilike(f"%{identifier}%")
+        )
+    ).first()
+    
+    if not user:
+        return {'status': 'error', 'message': f'Usuário {identifier} não encontrado'}, 404
+        
+    ip_antigo = user.machine_ip
+    user.machine_ip = local_ip
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        
+    if ip_antigo != local_ip:
+        registrar_auditoria('IP_DINAMICO_DHCP', f'Agente de inicialização atualizou o IPv4 dinâmico de "{user.username}" para {local_ip} (DNS: {GAMA_CORPORATE_DNS}).')
+        
+    return {
+        'status': 'ok',
+        'message': f'IP {local_ip} atribuído a {user.display_name or user.username} com sucesso!',
+        'user': user.username,
+        'machine_ip': local_ip,
+        'dns': GAMA_CORPORATE_DNS
+    }
+
 @app.context_processor
 def inject_avisos():
     try:
