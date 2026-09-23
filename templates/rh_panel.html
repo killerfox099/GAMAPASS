@@ -100,7 +100,7 @@
                     {% if aviso.document_link or aviso.files %}
                         <div style="margin-bottom: 10px; font-size: 0.85em; background: #ebf8fa; padding: 8px; border-radius: 4px; border: 1px solid #90cdf4;">
                             {% if aviso.document_link %}
-                                <div style="margin-bottom: 5px;"><strong>Drive:</strong> <a href="{{ aviso.document_link }}" target="_blank" style="color: #3182ce;">{{ aviso.document_link }}</a></div>
+                                <div style="margin-bottom: 5px;"><strong>Drive:</strong> <a href="{{ aviso.document_link }}" target="_blank" rel="noopener noreferrer" style="color: #3182ce;">{{ aviso.document_link }}</a></div>
                             {% endif %}
                             {% for arquivo in aviso.files %}
                                 <div style="margin-bottom: 5px;"><strong>Arquivo:</strong> {{ arquivo.filename }}</div>

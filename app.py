@@ -31,6 +31,7 @@ def regex_search_filter(value, pattern):
 
 # ================= CONFIGURAÇÕES DINÂMICAS =================
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chave_de_sessao_fallback_local')
+app.config['MAX_CONTENT_LENGTH'] = 15 * 1024 * 1024  # Limite de 15MB para uploads
 limiter = Limiter(get_remote_address, app=app, default_limits=["200 per day", "50 per hour"], storage_uri="memory://")
 
 # Blindagem de Cookies de Sessão (OWASP)
@@ -41,6 +42,12 @@ app.config['SESSION_COOKIE_SECURE'] = (os.environ.get('FLASK_ENV') != 'developme
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=60)
 
 # ================= HEADERS DE SEGURANÇA (OWASP HTTP DEFENSE) =================
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    flash('O arquivo enviado ultrapassa o limite máximo permitido de 15MB.', 'error')
+    return redirect(request.url or url_for('dashboard'))
+
 @app.after_request
 def aplicar_cabecalhos_seguranca(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -335,9 +342,7 @@ def api_reportar_ip_maquina():
     user = User.query.filter(
         db.or_(
             User.username == identifier,
-            User.email == identifier,
-            User.username.ilike(f"%{identifier}%"),
-            User.email.ilike(f"%{identifier}%")
+            User.email == identifier
         )
     ).first()
     
@@ -611,12 +616,17 @@ def enviar_email_geral(destinatario, assunto, corpo):
     return False, " | ".join(erros)
 
 
-def enviar_email_recuperacao(destinatario, nova_senha):
-    assunto = 'Recuperação de Acesso - GAMAPASS'
+def enviar_email_recuperacao(destinatario, link_redefinicao):
+    assunto = 'Recuperação de Acesso - GAMAPASS (Gama Caminhões)'
     corpo = (
-        f"Olá!\n\nSua senha do GAMAPASS foi redefinida.\n"
-        f"Sua nova senha temporária é: {nova_senha}\n\n"
-        f"Ao fazer login, o sistema exigirá o cadastro de uma nova senha segura."
+        f"Olá!\n\n"
+        f"Recebemos uma solicitação de redefinição de senha para a sua conta no GAMAPASS.\n\n"
+        f"Para cadastrar uma nova senha, clique no link seguro abaixo (válido por 20 minutos):\n"
+        f"{link_redefinicao}\n\n"
+        f"Caso não tenha solicitado esta alteração, ignore esta mensagem. Sua senha atual permanecerá inalterada.\n\n"
+        f"Atenciosamente,\n"
+        f"Equipe de Tecnologia da Informação\n"
+        f"Gama Caminhões"
     )
     sucesso, _ = enviar_email_geral(destinatario, assunto, corpo)
     return sucesso
@@ -729,15 +739,14 @@ def login():
                     user.locked_until = get_br_time() + timedelta(minutes=15)
                     db.session.commit()
                     registrar_auditoria('CONTA_BLOQUEADA', f'Usuário "{username}" bloqueado por 15 minutos após 5 tentativas incorretas.')
-                    flash('Conta bloqueada por 15 minutos após 5 tentativas incorretas de senha. Contate o Administrador de TI ou aguarde o tempo limite.', 'error')
+                    flash('Conta temporariamente bloqueada por 15 minutos devido a tentativas consecutivas incorretas.', 'error')
                 else:
-                    tentativas_restantes = 5 - user.failed_login_attempts
                     db.session.commit()
                     registrar_auditoria('LOGIN_FALHA', f'Tentativa de login falhou para usuário: {username} ({user.failed_login_attempts}/5).')
-                    flash(f'Credenciais inválidas. Você tem mais {tentativas_restantes} tentativa(s) antes do bloqueio da conta.', 'error')
+                    flash('Usuário ou senha incorretos.', 'error')
             else:
                 registrar_auditoria('LOGIN_FALHA', f'Tentativa de login falhou para usuário inexistente: {username}.')
-                flash('Credenciais inválidas. Verifique usuário e senha.', 'error')
+                flash('Usuário ou senha incorretos.', 'error')
                 
     return render_template('login.html')
 
@@ -1360,7 +1369,7 @@ def exportar_csv():
             senha_limpa = cipher_suite.decrypt(s.encrypted_password).decode('utf-8')
         except Exception:
             senha_limpa = "[ERRO_CRIPTOGRAFIA]"
-        writer.writerow([s.service_name, s.service_username, senha_limpa, s.service_url or ''])
+        writer.writerow([sanitizar_campo_csv(s.service_name), sanitizar_campo_csv(s.service_username), senha_limpa, sanitizar_campo_csv(s.service_url or '')])
         
     resposta = Response(output.getvalue().encode('utf-8-sig'), mimetype='text/csv')
     resposta.headers["Content-Disposition"] = "attachment; filename=gamapass_exportacao.csv"
@@ -1607,7 +1616,10 @@ def editar_usuario(user_id):
     usuario.machine_ip = request.form.get('machine_ip', usuario.machine_ip)
     
     # Checkbox forms enviam 'on' se marcado, None se desmarcado
-    usuario.is_admin = request.form.get('is_admin') == 'on'
+    if usuario.id == current_user.id:
+        usuario.is_admin = True  # Proteção contra auto-revogação de privilégio
+    else:
+        usuario.is_admin = request.form.get('is_admin') == 'on'
     usuario.is_hr = request.form.get('is_hr') == 'on'
     
     nova_senha = request.form.get('new_password')
@@ -1954,13 +1966,7 @@ def exportar_auditoria():
     writer = csv.writer(output, delimiter=';')
     writer.writerow(['Data/Hora', 'Usuário', 'Ação', 'Detalhes', 'IP'])
     for log in logs:
-        writer.writerow([
-            log.created_at.strftime('%d/%m/%Y %H:%M:%S') if log.created_at else '',
-            log.username_at_time or '',
-            log.action or '',
-            log.details or '',
-            log.ip_address or ''
-        ])
+        writer.writerow([log.created_at.strftime('%d/%m/%Y %H:%M:%S') if log.created_at else '', sanitizar_campo_csv(log.username_at_time or ''), sanitizar_campo_csv(log.action or ''), sanitizar_campo_csv(log.details or ''), sanitizar_campo_csv(log.ip_address or '')])
     
     resposta = Response(output.getvalue().encode('utf-8-sig'), mimetype='text/csv')
     resposta.headers["Content-Disposition"] = "attachment; filename=gamapass_relatorio_auditoria.csv"
@@ -1976,6 +1982,12 @@ def rh_panel():
     
     avisos = Announcement.query.order_by(Announcement.is_urgent.desc(), Announcement.created_at.desc()).all()
     return render_template('rh_panel.html', avisos=avisos, agora=get_br_time())
+
+
+EXTENSOES_PERMITIDAS = {'pdf', 'png', 'jpg', 'jpeg', 'docx', 'xlsx', 'csv', 'txt'}
+
+def extensao_permitida(nome):
+    return '.' in nome and nome.rsplit('.', 1)[-1].lower() in EXTENSOES_PERMITIDAS
 
 @app.route('/rh/aviso/novo', methods=['POST'])
 @login_required
@@ -2024,6 +2036,8 @@ def rh_novo_aviso():
                 else:
                     novo_nome = f"{titulo}.{ext}" if ext else titulo
                 
+                if not extensao_permitida(arquivo.filename):
+                    continue
                 file_data = arquivo.read()
                 novo_arq = AnnouncementFile(
                     announcement_id=aviso.id,
@@ -2108,6 +2122,8 @@ def rh_editar_aviso(aviso_id):
                     else:
                         novo_nome = f"{titulo}.{ext}" if ext else titulo
                         
+                    if not extensao_permitida(arquivo.filename):
+                        continue
                     file_data = arquivo.read()
                     novo_arq = AnnouncementFile(
                         announcement_id=aviso.id,

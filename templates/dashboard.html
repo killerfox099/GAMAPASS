@@ -244,7 +244,7 @@
                         {% if entry.service_url %}
                             <div style="font-size: 0.88em;">
                                 <span style="color: #64748b;">Link:</span>
-                                <a href="{{ entry.service_url if 'http' in entry.service_url else 'https://' + entry.service_url }}" target="_blank" class="busca-url" style="color: #2563eb; text-decoration: none; font-weight: 500;">
+                                <a href="{{ entry.service_url if 'http' in entry.service_url else 'https://' + entry.service_url }}" target="_blank" rel="noopener noreferrer" class="busca-url" style="color: #2563eb; text-decoration: none; font-weight: 500;">
                                     {{ entry.service_url }}
                                 </a>
                             </div>
@@ -388,7 +388,7 @@
                     {% if s.service_url %}
                         <div style="font-size: 0.88em;">
                             <span style="color: #64748b;">Link:</span>
-                            <a href="{{ s.service_url if 'http' in s.service_url else 'https://' + s.service_url }}" target="_blank" style="color: #0d9488; text-decoration: none; font-weight: 500;">
+                            <a href="{{ s.service_url if 'http' in s.service_url else 'https://' + s.service_url }}" target="_blank" rel="noopener noreferrer" style="color: #0d9488; text-decoration: none; font-weight: 500;">
                                 {{ s.service_url }}
                             </a>
                         </div>
@@ -502,7 +502,7 @@
                                         </span>
                                     </div>
                                 </div>
-                                <a href="{{ url_for('baixar_arquivo_aviso', file_id=arq.id) }}" target="_blank" style="color: #2563eb; text-decoration: none; font-weight: 600; font-size: 0.88em; padding: 5px 10px; background: #eff6ff; border-radius: 4px; border: 1px solid #bfdbfe;">
+                                <a href="{{ url_for('baixar_arquivo_aviso', file_id=arq.id) }}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: none; font-weight: 600; font-size: 0.88em; padding: 5px 10px; background: #eff6ff; border-radius: 4px; border: 1px solid #bfdbfe;">
                                     Baixar
                                 </a>
                             </div>
@@ -521,7 +521,7 @@
                                         </span>
                                     </div>
                                 </div>
-                                <a href="{{ aviso.document_link }}" target="_blank" style="color: #2563eb; text-decoration: none; font-weight: 600; font-size: 0.88em; padding: 5px 10px; background: #eff6ff; border-radius: 4px; border: 1px solid #bfdbfe;">
+                                <a href="{{ aviso.document_link }}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: none; font-weight: 600; font-size: 0.88em; padding: 5px 10px; background: #eff6ff; border-radius: 4px; border: 1px solid #bfdbfe;">
                                     Acessar
                                 </a>
                             </div>
@@ -535,7 +535,7 @@
                     {% endif %}
 
                     <div style="margin-top: 10px; border-top: 1px solid #e2e8f0; padding-top: 12px; text-align: center;">
-                        <a href="https://drive.google.com/drive/folders/1tKzk1_KFrYN_9R05SNt3yuOXXnnYCWye" target="_blank" style="display: block; width: 100%; background-color: #2563eb; color: white; padding: 10px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.9em;">
+                        <a href="https://drive.google.com/drive/folders/1tKzk1_KFrYN_9R05SNt3yuOXXnnYCWye" target="_blank" rel="noopener noreferrer" style="display: block; width: 100%; background-color: #2563eb; color: white; padding: 10px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.9em;">
                             Abrir Pasta no Google Drive
                         </a>
                     </div>
@@ -707,7 +707,7 @@
                 </thead>
                 <tbody id="corpoTabelaRamais">
                     {% for r in ramais %}
-                    <tr class="linha-ramal" data-unidade="{{ r.unit }}" data-nome="{{ r.name }}" data-setor="{{ r.sector }}" data-cargo="{{ r.role_name or '' }}" data-ramal="{{ r.extension or '' }}" data-email="{{ r.email or '' }}" data-phone="{{ r.phone or '' }}">
+                    <tr class="linha-ramal" data-id="{{ r.id }}" data-unidade="{{ r.unit }}" data-nome="{{ r.name }}" data-setor="{{ r.sector }}" data-cargo="{{ r.role_name or '' }}" data-ramal="{{ r.extension or '' }}" data-email="{{ r.email or '' }}" data-phone="{{ r.phone or '' }}">
                         <td>
                             <span style="background:{% if 'Campina' in r.unit %}#2563eb{% else %}#d97706{% endif %}; color:white; font-size:0.75em; padding:2px 7px; border-radius:4px; font-weight:bold;">
                                 {{ r.unit }}
@@ -741,7 +741,7 @@
                         </td>
                         {% if current_user.is_hr or current_user.is_admin %}
                         <td style="text-align: center; white-space: nowrap;">
-                            <button type="button" onclick="abrirModalEditarRamal({{ r.id }}, '{{ r.unit }}', '{{ r.sector }}', '{{ r.role_name or '' }}', '{{ r.name }}', '{{ r.extension or '' }}', '{{ r.email or '' }}', '{{ r.phone or '' }}')" style="background:none; border:none; color:#2563eb; cursor:pointer; font-size:0.95em; padding:2px 5px;" title="Editar contato">
+                            <button type="button" onclick="abrirModalEditarRamalLinha(this)" style="background:none; border:none; color:#2563eb; cursor:pointer; font-size:0.95em; padding:2px 5px;" title="Editar contato">
                                 ✏️
                             </button>
                             <form method="POST" action="{{ url_for('ramais_deletar', ramal_id=r.id) }}" onsubmit="return confirm('Excluir este contato da lista de ramais?');" style="display:inline; margin:0;">
@@ -1122,6 +1122,22 @@
     function toggleFormAdicionarRamal() {
         const box = document.getElementById('box-novo-ramal');
         if (box) box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    }
+
+    
+    function abrirModalEditarRamalLinha(btn) {
+        const tr = btn.closest('tr');
+        if (!tr) return;
+        abrirModalEditarRamal(
+            tr.dataset.id,
+            tr.dataset.unidade || '',
+            tr.dataset.setor || '',
+            tr.dataset.cargo || '',
+            tr.dataset.nome || '',
+            tr.dataset.ramal !== '-' ? (tr.dataset.ramal || '') : '',
+            tr.dataset.email !== '-' ? (tr.dataset.email || '') : '',
+            tr.dataset.phone !== '-' ? (tr.dataset.phone || '') : ''
+        );
     }
 
     function abrirModalEditarRamal(id, unit, sector, role, name, ext, email, phone) {
