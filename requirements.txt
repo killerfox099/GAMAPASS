@@ -6,4 +6,5 @@ cryptography
 gunicorn
 psycopg2-binary
 reportlab
-Flask-WTFFlask-Limiter
+Flask-WTF
+Flask-Limiter
